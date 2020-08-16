@@ -6,12 +6,22 @@ import os
 
 
 class ImageHelper:
-    def __init__(self, dirname=".", exclude_marked=True):
+    def __init__(self, dirname=".", show_mode="unmarked"):
         from pathlib import Path
 
         resolved_path = str(Path(dirname).resolve()) + '/*.*'
 
-        self.images = list(filter(partial(re.match, r'.+[^_]\.(jpg|png|jpeg|gif)$'), iglob(resolved_path)))
+        fname_regex = r".+"
+        ext_regex = r"\.(jpg|png|jpeg|gif)$"
+
+        if show_mode == "unmarked":
+            fname_regex += r"[^_]"
+        elif show_mode == "marked":
+            fname_regex += "_"
+
+        fname_regex += ext_regex
+
+        self.images = list(filter(partial(re.match, fname_regex), iglob(resolved_path)))
         shuffle(self.images)
 
     def get_random_image(self):
@@ -34,3 +44,37 @@ class ImageHelper:
     def delete_image(self, image):
         os.remove(image)
         self.images.remove(image)
+
+
+def picker_settings_from_request(request):
+    picker_settings = request.session.get("picker_settings")
+
+    return picker_settings
+
+
+class PickerSettings:
+    @staticmethod
+    def from_session(request):
+        data = request.session.get("picker_config")
+        if not data:
+            return None
+
+        return PickerSettings(data['selected_gallery'],
+                              data['show_mode'])
+
+    def __init__(self, selected_gallery_pk, show_mode="unmarked"):
+        self._selected_gallery_pk = selected_gallery_pk
+        self.show_mode = show_mode
+
+    @property
+    def selected_gallery(self):
+        return self._selected_gallery_pk
+
+    def to_session(self, request):
+        request.session["picker_config"] = self.to_dict()
+
+    def to_dict(self):
+        return {
+            "selected_gallery": self._selected_gallery_pk,
+            "show_mode": self.show_mode
+        }
