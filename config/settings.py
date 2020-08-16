@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'image_picker',
 ]
 
@@ -120,4 +121,3 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-IMAGE_PICKER_DIR='/storage/emulated/0/Pictures/ero'
