@@ -97,9 +97,9 @@ def settings_old(request):
 def settings(request):
     if request.method == 'GET':
         picker_settings = PickerSettings.from_session(request)
-        data = picker_settings if picker_settings else {}
+        data = picker_settings.to_dict() if picker_settings else {}
 
-        serializer = SettingsSerializer(data=data.to_dict())
+        serializer = SettingsSerializer(data=data)
         return JsonResponse(serializer.initial_data, safe=False)
 
     elif request.method == 'POST':
