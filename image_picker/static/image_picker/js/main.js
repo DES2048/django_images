@@ -66,7 +66,9 @@ sidenavOpen.addEventListener("click", () => {
             const settings = results[1];
 
             const selected_gallery = settings && settings.selected_gallery;
-
+			const show_mode = settings && settings.show_mode;
+			document.getElementById("showMode").value=show_mode
+			
             galls.map((gallery) => {
                 const elem = document.createElement("a");
                 elem.innerHTML = gallery.title;
@@ -93,10 +95,10 @@ sidenavOpen.addEventListener("click", () => {
         });
 
 });
-
-sidenavClose.addEventListener("click", () => {
-    sidenav.classList.remove("sidenav-open");
-});
+function closeSidenav() {
+	sidenav.classList.remove("sidenav-open");
+}
+sidenavClose.addEventListener("click", closeSidenav);
 
 saveButton.addEventListener("click", () => {
     const settings = {
@@ -106,6 +108,7 @@ saveButton.addEventListener("click", () => {
     api.saveSettings(settings)
         .then(response => response.json())
         .catch(error => console.log(error.message));
+        closeSidenav();
 })
 
 // images
