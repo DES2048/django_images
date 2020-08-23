@@ -57,11 +57,11 @@ def get_image(request, gallery_slug, image_url):
 
 
 @csrf_exempt
-def delete_image(request, url):
+def delete_image(request, gallery_slug, image_url):
     if request.method == "POST":
-        picker_settings = PickerSettings.from_session(request)
-        gallery = Gallery.objects.get(pk=picker_settings.selected_gallery)
-        fname = os.path.join(gallery.dir_path, url)
+       
+        gallery = get_object_or_404(Gallery, pk=gallery_slug)
+        fname = os.path.join(gallery.dir_path, image_url)
 
         os.remove(fname)
 

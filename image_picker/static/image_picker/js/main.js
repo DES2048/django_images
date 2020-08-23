@@ -32,8 +32,8 @@ const api = {
                 }
             });
     },
-    deleteImage(url) {
-        return fetch(this.endpoints.deleteImage + url + "/", {
+    deleteImage(gallery, url) {
+        return fetch(this.endpoints.deleteImage + gallery + "/" + url, {
             method: "POST"
         })
     }
@@ -72,7 +72,7 @@ const app = {
 			})
 	},
 	deleteImage() {
-		this.api.deleteImage(this.data.currentImage)
+		this.api.deleteImage(this.data.settings.selected_gallery, this.data.currentImage)
 		.then(response => {
 			if (response.ok) {
 				this.redraw();
@@ -172,7 +172,10 @@ saveButton.addEventListener("click", () => {
     }
     app.saveSettings(settings)
         .catch(error => console.log(error.message))
-        .finally(()=>closeSidenav());
+        .finally(() => {
+        	closeSidenav();
+        	app.redraw();
+        });
 })
 
 // images
@@ -185,7 +188,7 @@ rnd.addEventListener('click', function () {
 
 const deleteButton = document.getElementById("delete");
 deleteButton.addEventListener("click", () => {
-    app.deleteImage(api.data.currentUrl);
+    app.deleteImage();
 });
 
 app.start();
