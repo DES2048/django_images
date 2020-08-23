@@ -1,6 +1,6 @@
 import os
 import json
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics
@@ -45,10 +45,11 @@ def get_random_image_url(request):
     )
 
 
-def get_image(request, url):
-    picker_settings = PickerSettings.from_session(request)
-    gallery = Gallery.objects.get(pk=picker_settings.selected_gallery)
-    fname = os.path.join(gallery.dir_path, url)
+def get_image(request, gallery_slug, image_url):
+    
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
+    
+    fname = os.path.join(gallery.dir_path, image_url)
 
     return FileResponse(
         open(fname, 'rb')
