@@ -6,44 +6,107 @@ const api = {
         randomUrl: "/get-random-image-url/",
         deleteImage: '/delete-image/',
     },
-    data: {
-        currentUrl: "",
-        galleries: [],
-
-    },
-    getGalleries: function () {
+    getGalleries () {
         return fetch(this.endpoints["galleries"])
             .then(response => response.json());
     },
-    getSettings: function () {
+    getSettings () {
         return fetch(this.endpoints['settings'])
             .then(response => response.json());
     },
-    saveSettings: function (settings) {
+    saveSettings (settings) {
         return fetch(this.endpoints["settings"], {
             method: 'POST',
             body: JSON.stringify(settings)
         })
     },
-    getRandomImageUrl: function () {
+    getRandomImageUrl () {
         return fetch(this.endpoints.randomUrl)
             .then(response => response.json())
             .then(data => {
                 if (data.status === "ok") {
-                    this.data.currentUrl = data.url;
                     return data.url;
                 } else {
-                    this.data.currentUrl = "";
                     return new Promise(
                         (resolve, reject) => reject(new Error(data.message)))
                 }
             });
     },
     deleteImage(url) {
-        return fetch(this.endpoints.deleteImage + api.data.currentUrl + "/", {
+        return fetch(this.endpoints.deleteImage + url + "/", {
             method: "POST"
         })
     }
+}
+
+// app
+const app = {
+	api,
+	data: {
+		galleries: [],
+		settings: {},
+		currentImage: ""
+	},
+	getGalleries() {
+		return this.api.getGalleries()
+			.then(data => {
+				this.data.galleries = data;
+				return data
+			})
+	},
+	getSettings() {
+		return this.api.getSettings()
+			.then(data => {
+				this.data.settings = data;
+				return data;	
+			})
+	},
+	saveSettings(settings) {
+		return this.api.saveSettings(settings)
+			.then(response => {
+				if(response.ok) {
+					this.data.settings = settings;
+					return True
+				}
+				return false
+			})
+	},
+	deleteImage() {
+		this.api.deleteImage(this.data.currentImage)
+		.then(response => {
+			if (response.ok) {
+				this.redraw();
+			}
+		})
+	},
+	showImage(url) {
+    	const image = document.getElementById("image");
+    	image.src = "/get-image/" + this.data.settings.selected_gallery + "/" + url;
+	},
+	drawErrorContainer(message) {
+    	const imageContainer = document.getElementById("imageContainer");
+    	imageContainer.innerHTML = ""
+
+    	const msgElement = document.createElement("p");
+    	msgElement.innerHTML = message;
+    	msgElement.className = "error-message";
+    	imageContainer.append(msgElement);
+	},
+	redraw() {
+    	this.api.getRandomImageUrl().then(url => {
+        this.data.currentImage = url;
+        const imgNameDiv = document.getElementById("imageName");
+        imgNameDiv.innerHTML = url;
+
+        this.showImage(url);
+    })
+        .catch(error => {
+            this.drawErrorContainer(error.message);
+        });
+	},
+	start() {
+		this.getSettings().then(data => this.redraw())
+	}
 }
 
 // side navigation
@@ -59,7 +122,7 @@ sidenavOpen.addEventListener("click", () => {
     const gallsContainer = document.getElementsByClassName("galleries-container")[0];
     gallsContainer.innerHTML = "";
 
-    Promise.all([api.getGalleries(), api.getSettings()])
+    Promise.all([app.getGalleries(), app.getSettings()])
         .then(results => {
             // draw galleries
             const galls = results[0];
@@ -95,9 +158,11 @@ sidenavOpen.addEventListener("click", () => {
         });
 
 });
+
 function closeSidenav() {
 	sidenav.classList.remove("sidenav-open");
 }
+
 sidenavClose.addEventListener("click", closeSidenav);
 
 saveButton.addEventListener("click", () => {
@@ -105,56 +170,22 @@ saveButton.addEventListener("click", () => {
         show_mode: document.getElementById("showMode").value,
         selected_gallery: document.querySelector(".galleries-container a.selected").dataset.id
     }
-    api.saveSettings(settings)
-        .then(response => response.json())
-        .catch(error => console.log(error.message));
-        closeSidenav();
+    app.saveSettings(settings)
+        .catch(error => console.log(error.message))
+        .finally(()=>closeSidenav());
 })
 
 // images
 
-function showImage(url) {
-    const image = document.getElementById("image");
-    image.src = "/get-image/" + url;
-}
-
-function drawErrorContainer(message) {
-    const imageContainer = document.getElementById("imageContainer");
-    imageContainer.innerHTML = ""
-
-    const msgElement = document.createElement("p");
-    msgElement.innerHTML = message;
-    msgElement.className = "error-message";
-    imageContainer.append(msgElement);
-}
-
-function redraw() {
-    api.getRandomImageUrl().then(url => {
-        const imgNameDiv = document.getElementById("imageName");
-        imgNameDiv.innerHTML = url;
-
-        showImage(url);
-    })
-        .catch(error => {
-            drawErrorContainer(error.message);
-        });
-}
-
 const rnd = document.getElementById("random");
 rnd.addEventListener('click', function () {
-    redraw();
+    app.redraw();
 });
 
 
 const deleteButton = document.getElementById("delete");
 deleteButton.addEventListener("click", () => {
-    api.deleteImage(api.data.currentUrl).then(response => {
-        if(response.ok) {
-            redraw();
-        }
-    }).catch(error => {
-        drawErrorContainer(error.message);
-    })
+    app.deleteImage(api.data.currentUrl);
 });
 
-redraw();
+app.start();
