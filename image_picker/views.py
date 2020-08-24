@@ -1,8 +1,10 @@
 import os
 import json
+from pathlib import Path
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
 from rest_framework import generics
 from rest_framework.parsers import JSONParser
 from .services import ImageHelper, PickerSettings
@@ -44,6 +46,32 @@ def get_random_image_url(request):
         data=context
     )
 
+
+def images(request, gallery_slug):
+	
+	gallery = get_object_or_404(Gallery, pk=gallery_slug)
+	show_mode = request.GET.get("show_mode", "unmarked")
+	
+	helper = ImageHelper(
+            gallery.dir_path,
+            show_mode
+    )
+	
+	data = [
+		{
+			"name": Path(name).name,
+			"url": reverse("get-image",
+			    kwargs={
+			        "gallery_slug" : gallery_slug,
+			        "image_url" : Path(name).name
+			    })
+	    } for name in helper.images]
+	
+	return JsonResponse(
+		data=data,
+		safe=False
+	)
+	
 
 def get_image(request, gallery_slug, image_url):
     

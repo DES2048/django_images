@@ -1,7 +1,7 @@
 from functools import partial
 import re
 from glob import iglob
-from random import shuffle, choice
+from random import choice
 import os
 
 
@@ -21,8 +21,11 @@ class ImageHelper:
 
         fname_regex += ext_regex
 
-        self.images = list(filter(partial(re.match, fname_regex), iglob(resolved_path)))
-        shuffle(self.images)
+        self._images = list(filter(partial(re.match, fname_regex), iglob(resolved_path)))
+	
+    @property
+    def images(self):
+	       return self._images
 
     def get_random_image(self):
         if not len(self.images):
