@@ -4,10 +4,11 @@ from pathlib import Path
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, FileResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.urls import reverse
 from rest_framework import generics
 from rest_framework.parsers import JSONParser
-from .services import ImageHelper, PickerSettings
+from .services import ImageHelper, ImageInfo, PickerSettings
 from .serializers import GallerySerializer, SettingsSerializer
 from .models import Gallery
 
@@ -16,34 +17,6 @@ def home(request):
     return render(
         request,
         'image_picker/home.html'
-    )
-
-
-def get_random_image_url(request):
-    picker_settings = PickerSettings.from_session(request)
-
-    if not picker_settings:
-        context = {
-            'status': 'error',
-            'message': 'Pick gallery in your sidenav'
-        }
-    else:
-        gallery = Gallery.objects.get(pk=picker_settings.selected_gallery)
-        helper = ImageHelper(
-            gallery.dir_path,
-            picker_settings.show_mode
-        )
-
-        fullname = helper.get_random_image()
-        fname = fullname[fullname.rfind("/") + 1:]
-
-        context = {
-            'status': 'ok',
-            "url": fname
-        }
-
-    return JsonResponse(
-        data=context
     )
 
 
@@ -58,14 +31,7 @@ def images(request, gallery_slug):
     )
 	
 	data = [
-		{
-			"name": Path(name).name,
-			"url": reverse("get-image",
-			    kwargs={
-			        "gallery_slug" : gallery_slug,
-			        "image_url" : Path(name).name
-			    })
-	    } for name in helper.images]
+	  ImageInfo(gallery_slug, name).__dict__ for name in helper.images]
 	
 	return JsonResponse(
 		data=data,
@@ -85,6 +51,25 @@ def get_image(request, gallery_slug, image_url):
 
 
 @csrf_exempt
+@require_POST
+def mark_image(request, gallery_slug, image_url):
+  gallery = get_object_or_404(Gallery, pk=gallery_slug)
+  img_path = os.path.join(
+    gallery.dir_path, 
+    image_url)
+  
+  new_img_path = ImageHelper.mark_image(
+    img_path)
+  
+  data = ImageInfo(
+    gallery_slug, new_img_path).__dict__
+    
+  return JsonResponse(
+    data=data,
+    status=200)
+
+  
+@csrf_exempt
 def delete_image(request, gallery_slug, image_url):
     if request.method == "POST":
        
@@ -102,24 +87,6 @@ def delete_image(request, gallery_slug, image_url):
             data={},
             status=405
         )
-
-
-@csrf_exempt
-def settings_old(request):
-    if request.method == 'GET':
-        picker_settings = request.session.get("picker_settings")
-        if not picker_settings:
-            return JsonResponse(
-                {}
-            )
-        else:
-            return JsonResponse(
-                picker_settings
-            )
-    elif request.method == 'POST':
-        picker_settings = json.loads(request.body)
-        request.session['picker_settings'] = picker_settings
-        return HttpResponse()
 
 
 @csrf_exempt
