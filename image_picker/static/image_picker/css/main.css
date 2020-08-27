@@ -11,6 +11,13 @@
     padding: 10px;
 }
 
+.buttons-panel {
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  left:0;
+  height: auto;
+}
 /* sidenav */
 
 .sidenav {
