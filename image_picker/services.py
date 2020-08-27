@@ -3,11 +3,12 @@ import re
 from glob import iglob
 from random import choice
 import os
+from pathlib import Path
+from django.urls import reverse
 
 
 class ImageHelper:
     def __init__(self, dirname=".", show_mode="unmarked"):
-        from pathlib import Path
 
         resolved_path = str(Path(dirname).resolve()) + '/*.*'
 
@@ -26,14 +27,13 @@ class ImageHelper:
     @property
     def images(self):
 	       return self._images
+    
+    @classmethod
+    def is_marked(cls, image_name):
+        return Path(image_name).stem.endswith("_")
 
-    def get_random_image(self):
-        if not len(self.images):
-            return None
-        
-        return choice(self.images)
-        
-    def mark_image(self, image):
+    @classmethod    
+    def mark_image(cls, image):
         ext_start_index = image.rfind('.')
         filename = image[0: ext_start_index]
         extension = image[ext_start_index:]
@@ -41,14 +41,28 @@ class ImageHelper:
         new_filename = filename + '_' + extension
 
         os.replace(image, new_filename)
+        
+        return new_filename
 
-        self.images.remove(image)
 
     def delete_image(self, image):
         os.remove(image)
         self.images.remove(image)
 
 
+class ImageInfo:
+  
+  def __init__(self, gallery_id, img_path):
+    self.name = Path(img_path).name
+    self.url = reverse(
+      "get-image",
+		  kwargs={
+			  "gallery_slug" : gallery_id,
+			  "image_url" : self.name
+    })
+    self.marked = ImageHelper.is_marked(self.name)
+
+    
 def picker_settings_from_request(request):
     picker_settings = request.session.get("picker_settings")
 
