@@ -47,10 +47,46 @@ const api = {
       });
   }
 };
+const slickCarousel = {
+  init(data) {
+    this.drawItems(data);
+    $(".carousel").slick({
+      lazyLoad : "ondemand",
+      centerMode: true,
+      variableWidth: true,
+      centerPadding: "10px",
+      arrows: false
+    });
+  },
+  ensureContainer() {
+    let c = document.getElementById("carousel");
+    if(!c) {
+      c = document.createElement('div');
+      c.className = 'carousel';
+      const imgCont = document.getElementById("imageContainer");
+      imgCont.append(c);
+    }
+    return c;
+  }, 
+  drawItems(data) {
+    const container = this.ensureContainer();
+    container.innerHTML = "";
+    
+    for (let img of data) {
+      const d = document.createElement("div");
+      const item = document.createElement("img");
+      item.className = 'slick-img';
+      item.dataset.lazy=img.url;
+      d.append(item);
+      container.append(d);
+    }
+  }
+};
 
 // app
 const app = {
   api,
+  carousel : slickCarousel,
   data: {
     galleries: [],
     settings: {},
@@ -154,10 +190,11 @@ const app = {
     this.showImage(image.url);
   },
   redraw() {
-    const image = this.randomImage();
+    //const image = this.randomImage();
     //alert(image);
-    this.data.currentImage = image;
-    this.drawImage(this.data.currentImage);
+    //this.data.currentImage = image;
+    //this.drawImage(this.data.currentImage);
+    this.carousel.init(this.data.images);
   },
   start() {
     this.getSettings()
