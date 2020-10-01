@@ -1,12 +1,6 @@
 body {
   background-color: black;
 }
-.responsive {
-    display: block;
-    max-width: 960px;
-    width: 100%;
-    margin: 0 auto;
-}
 
 .error-message {
     text-align: center;
@@ -80,11 +74,11 @@ body {
   margin-left: 50px;
 }
 
-#imageContainer {
+/*#imageContainer {
     width: 100%;
     max-width: 960px;
     margin: 0 auto;
-}
+} */
 
 #imageName {
     text-align: center;
@@ -96,6 +90,13 @@ body {
 }
 
 .slick-img {
-  width: 375px;
+  width: 100%;
+  max-width: 960px;
   height: auto;
+}
+
+@media screen and (max-width: 400px) {
+  .slick-img {
+    max-width: 390px;
+  }  
 }

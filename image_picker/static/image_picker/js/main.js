@@ -52,6 +52,7 @@ const slickCarousel = {
     this.drawItems(data);
     $(".carousel").slick({
       lazyLoad : "ondemand",
+      slidesToShow: 1,
       centerMode: true,
       variableWidth: true,
       centerPadding: "10px",
@@ -74,12 +75,16 @@ const slickCarousel = {
     
     for (let img of data) {
       const d = document.createElement("div");
+      d.className="container-sm";
       const item = document.createElement("img");
       item.className = 'slick-img';
       item.dataset.lazy=img.url;
       d.append(item);
       container.append(d);
     }
+  },
+  goToImage(idx) {
+    $(".carousel").slick("slickGoTo", idx, true);
   }
 };
 
@@ -165,10 +170,10 @@ const app = {
       }
     });
   },
-  randomImage() {
+  drawRandomImage() {
     const images = this.data.images;
-    
-    return images[Math.floor(Math.random() * images.length)];
+    const randIdx = Math.floor(Math.random() * images.length)
+    this.carousel.goToImage(randIdx);
   },
   showImage(url) {
     const image = document.getElementById("image");
@@ -291,7 +296,7 @@ function ImageButtons(app) {
   
   this.randomButton = document.getElementById("random");
   this.randomButton.addEventListener('click', 
-    () => this.app.redraw());
+    () => this.app.drawRandomImage());
   
   
   this.deleteButton = document.getElementById("delete");
