@@ -24,5 +24,6 @@ class GalleryAdmin(WidgetAttrsMixin, admin.ModelAdmin):
         'slug': {'autocomplete' : 'off'},
         'dir_path': {'autocomplete' : 'off'}
     }
+    list_display = ('title', 'dir_path')
     
 
