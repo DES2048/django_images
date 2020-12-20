@@ -13,7 +13,7 @@ class ImageHelper:
         resolved_path = str(Path(dirname).resolve()) + '/*.*'
 
         fname_regex = r".+"
-        ext_regex = r"\.(jpg|png|jpeg|gif)$"
+        ext_regex = r"\.(jpg|png|jpeg|gif|webp)$"
 
         if show_mode == "unmarked":
             fname_regex += r"[^_]"
