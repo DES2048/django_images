@@ -91,3 +91,8 @@
     flex-grow: 1;
     margin-left: 5px;
 }
+
+.btn-panel:focus, .btn-panel:active {
+  outline: none !important ;
+  box-shadow: none !important ;
+}

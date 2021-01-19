@@ -1,7 +1,6 @@
 from functools import partial
 import re
 from glob import iglob
-from random import choice
 import os
 from pathlib import Path
 from django.urls import reverse
@@ -53,7 +52,8 @@ class ImageHelper:
 class ImageInfo:
   
   def __init__(self, gallery_id, img_path):
-    self.name = Path(img_path).name
+    path = Path(img_path)
+    self.name = path.name
     self.url = reverse(
       "get-image",
 		  kwargs={
@@ -61,6 +61,7 @@ class ImageInfo:
 			  "image_url" : self.name
     })
     self.marked = ImageHelper.is_marked(self.name)
+    self.mod_date = path.stat().st_mtime * 1000
 
     
 def picker_settings_from_request(request):
