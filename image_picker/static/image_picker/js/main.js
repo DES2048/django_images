@@ -152,7 +152,8 @@ const app = {
     .then(response => {
       if (response.ok) {
           this.deleteImageFromImages(this.data.currentImage); 
-        this.drawRandomImage();
+          // compensate index
+        this.redraw();
       }
     });
   },
