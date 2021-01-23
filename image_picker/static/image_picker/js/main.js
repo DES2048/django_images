@@ -12,36 +12,36 @@ const api = {
       
     }
   },
-  getGalleries () {
-    return fetch(this.endpoints.galleries)
-    .then(response => response.json());
+  async getGalleries () {
+    const resp = await fetch(this.endpoints.galleries);
+    return await resp.json();
   },
-  getSettings () {
-    return fetch(this.endpoints.settings)
-    .then(response => response.json());
+  async getSettings () {
+    const resp = await fetch(this.endpoints.settings);
+    return await resp.json();
   },
-  saveSettings (settings) {
-    return fetch(this.endpoints.settings, {
+  async saveSettings (settings) {
+    return await fetch(this.endpoints.settings, {
       method: 'POST',
       body: JSON.stringify(settings)
     });
   },
-  getImages(gallery, show_mode) {
+  async getImages(gallery, show_mode) {
     const url = this.endpoints.images(gallery, show_mode);
-    return fetch(url)
-      .then(response => response.json())
-      .catch(err => alert(err));
+    const resp = await fetch(url);
+     return await resp.json();
+    
   },
-  markImage(gallery, img_name) {
-    return   fetch(this.endpoints.markImage(gallery, img_name), 
+  async markImage(gallery, img_name) {
+    const resp = await fetch(this.endpoints.markImage(gallery, img_name), 
       {
         method: "POST"
       }
-    )
-        .then(response => response.json());
+    );
+    return await resp.json();
   }, 
-  deleteImage(gallery, url) {
-    return fetch(this.endpoints.deleteImage + gallery + "/" + url,
+  async deleteImage(gallery, url) {
+    return await fetch(this.endpoints.deleteImage + gallery + "/" + url,
       {
         method: "POST"
       });
