@@ -1,4 +1,5 @@
 import './styles/main.css';
+import XWiper from 'xwiper'
 
 // api
 const api = {
@@ -348,5 +349,9 @@ function ImageButtons(app) {
 
 
 const panel = new ImageButtons(app);
+
+const xwiper = new XWiper("#imageContainer");
+xwiper.onSwipeLeft(() => app.drawNextImage());
+xwiper.onSwipeRight(() => app.drawPrevImage());
 
 app.start();
