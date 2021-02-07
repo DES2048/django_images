@@ -36,7 +36,8 @@ module.exports = {
          filename: '[name].[contenthash].css'
      }),
      new BundleTracker({
-         filename: path.resolve(outputPath, 'webpack-stats.json')
+         path: outputPath,
+         filename:'webpack-stats.json'
      }),
      new CleanWebpackPlugin()
  ]
