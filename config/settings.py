@@ -11,10 +11,19 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 
 from pathlib import Path
+import environ 
+
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 
+env = environ.Env(
+    ALLOWED_HOSTS=(list, 
+        ['127.0.0.1',]
+    )
+)
+env.read_env()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
@@ -25,11 +34,7 @@ SECRET_KEY = 'c3laxrnra1_ujy3r$msf$_uc(b$ueqbk8g!djq*j^b7ik2@-25'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    '127.0.0.1',
-    '192.168.43.1'
-]
-
+ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 # Application definition
 
