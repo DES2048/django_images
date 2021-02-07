@@ -6,8 +6,13 @@ from django.http import JsonResponse, FileResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.urls import reverse
+
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.parsers import JSONParser
+
 from .services import ImageHelper, ImageInfo, PickerSettings
 from .serializers import GallerySerializer, SettingsSerializer
 from .models import Gallery
@@ -19,7 +24,7 @@ def home(request):
         'image_picker/index.html'
     )
 
-
+# TODO wraps to serializer
 def images(request, gallery_slug):
 	
 	gallery = get_object_or_404(Gallery, pk=gallery_slug)
@@ -42,7 +47,7 @@ def images(request, gallery_slug):
 def get_image(request, gallery_slug, image_url):
     
     gallery = get_object_or_404(Gallery, pk=gallery_slug)
-    
+    # TODO potential security vulnerable
     fname = os.path.join(gallery.dir_path, image_url)
 
     return FileResponse(
@@ -89,22 +94,19 @@ def delete_image(request, gallery_slug, image_url):
         )
 
 
-@csrf_exempt
+@api_view(['GET', 'POST'])
 def settings(request):
     if request.method == 'GET':
         picker_settings = PickerSettings.from_session(request)
-        data = picker_settings.to_dict() if picker_settings else {}
-
-        serializer = SettingsSerializer(data=data)
-        return JsonResponse(serializer.initial_data, safe=False)
+        serializer = SettingsSerializer(instance=picker_settings)
+        return Response(serializer.data)
 
     elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = SettingsSerializer(data=data)
+        serializer = SettingsSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(request=request)
-            return JsonResponse(serializer.data, status=200)
-        return JsonResponse(serializer.errors, status=400)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GalleryListApiView(generics.ListAPIView):

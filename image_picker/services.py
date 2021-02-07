@@ -6,6 +6,12 @@ from pathlib import Path
 from django.urls import reverse
 
 
+class ShowMode:
+    ALL = 'all'
+    MARKED = 'marked'
+    UNMARKED = "unmarked"
+
+
 class ImageHelper:
     def __init__(self, dirname=".", show_mode="unmarked"):
 
@@ -63,36 +69,37 @@ class ImageInfo:
     self.marked = ImageHelper.is_marked(self.name)
     self.mod_date = path.stat().st_mtime * 1000
 
-    
-def picker_settings_from_request(request):
-    picker_settings = request.session.get("picker_settings")
-
-    return picker_settings
-
 
 class PickerSettings:
+    
     @staticmethod
     def from_session(request):
         data = request.session.get("picker_config")
-        if not data:
-            return None
+        defaults = {
+            'selected_gallery': "",
+        }
 
-        return PickerSettings(data['selected_gallery'],
-                              data['show_mode'])
+        if data:
+            return PickerSettings(
+                data.get('selected_gallery', ''),
+                data.get('show_mode', ShowMode.UNMARKED)
+            )
+        else:
+            return PickerSettings(**defaults)
 
-    def __init__(self, selected_gallery_pk, show_mode="unmarked"):
-        self._selected_gallery_pk = selected_gallery_pk
+    def __init__(self, selected_gallery, show_mode=ShowMode.UNMARKED):
+        self._selected_gallery = selected_gallery
         self.show_mode = show_mode
 
     @property
     def selected_gallery(self):
-        return self._selected_gallery_pk
+        return self._selected_gallery
 
     def to_session(self, request):
         request.session["picker_config"] = self.to_dict()
 
     def to_dict(self):
         return {
-            "selected_gallery": self._selected_gallery_pk,
+            "selected_gallery": self._selected_gallery,
             "show_mode": self.show_mode
         }

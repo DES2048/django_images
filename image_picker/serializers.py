@@ -14,8 +14,11 @@ class SettingsSerializer(serializers.Serializer):
     show_mode = serializers.CharField(max_length=20, default="unmarked")
 
     def save(self, **kwargs):
-        PickerSettings(
+        settings = PickerSettings(
             self.validated_data['selected_gallery'],
             self.validated_data['show_mode']
-        ).to_session(kwargs['request'])
+        )
+
+        settings.to_session(kwargs['request'])
+        return settings
 
