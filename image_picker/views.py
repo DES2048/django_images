@@ -16,7 +16,7 @@ from .models import Gallery
 def home(request):
     return render(
         request,
-        'image_picker/home.html'
+        'image_picker/index.html'
     )
 
 

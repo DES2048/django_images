@@ -1,0 +1,65 @@
+{% load static %}
+{% load render_bundle from webpack_loader %}
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    {% render_bundle 'main' 'css' %}
+    <title>Image Picker</title>
+    <style>
+
+    </style>
+</head>
+<body>
+<div id="sidenav" class="sidenav">
+  <a href="javascript:void(0)" class="closebtn" id="sidenavClose">&times;</a>
+  <div class="sidenav-title">Settings</div>
+  <div class="show-mode">
+      <span>Show:</span>
+      <select id="showMode">
+          <option value="unmarked">Unmarked</option>
+          <option value="marked">Marked</option>
+          <option value="all">All</option>
+      </select>
+  </div>
+  <div class="galleries-container">
+
+  </div>
+  <div>
+      <a href="javascript:void(0);" class="btn" id="btnSave">Save</a>
+  </div>
+</div>
+
+<div class="container">
+    <div id="imageContainer">
+        <div id="imageName">aaaa</div>
+        <img src="" id="image" class="responsive"/>
+    </div>
+    <div class="buttons-panel">
+        <a href="javascript:void(0)" class="btn-panel" id="sidenavOpen">
+          <!--<img src="{% static 'image_picker/svg/settings.svg' %}" > -->
+          &#9881;
+        </a>
+        <a href="#" class="btn-panel" role="button" id="random">random</a>
+        <a href="javascript:void(0)" class="btn-panel" id="prev">&lt;</a>
+        <a href="javascript:void(0)" class="btn-panel" id="next">&gt;</a>
+        <a href="javascript:void(0)" class="btn-panel" id="delete">&#10006;</a>
+        <a href="javascript:void(0)" class="btn-panel" id="mark">&#10004;</a>
+    </div>
+</div>
+
+{% render_bundle 'main' 'js' %}
+
+<script>
+    ;(function () {
+    var src = '//cdn.jsdelivr.net/npm/eruda';
+    if (!/eruda=true/.test(window.location) && localStorage.getItem('active-eruda') != 'true') return;
+    document.write('<scr' + 'ipt src="' + src + '"></scr' + 'ipt>');
+    document.write('<scr' + 'ipt>eruda.init();</scr' + 'ipt>');
+})();
+</script>
+</body>
+</html>

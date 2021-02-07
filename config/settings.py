@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'webpack_loader',
     'image_picker',
 ]
 
@@ -122,5 +123,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
+FRONTEND_DIR = BASE_DIR / 'frontend'
+FRONTEND_DIST = FRONTEND_DIR / 'dist'
+
+WEBPACK_LOADER = {
+    'DEFAULT': {
+        'BUNDLE_DIR_NAME' : '/',
+        'STATS_FILE': FRONTEND_DIST / 'webpack-stats.json'
+    }
+}
+
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    FRONTEND_DIST
+]
 
