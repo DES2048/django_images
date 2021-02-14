@@ -22,6 +22,7 @@
     "webpack-cli": "^4.5.0"
   },
   "dependencies": {
+    "js-cookie": "^2.2.1",
     "xwiper": "^2.2.0"
   }
 }

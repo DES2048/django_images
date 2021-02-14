@@ -1,55 +1,7 @@
 import './styles/main.css';
-import XWiper from 'xwiper'
-
-// api
-const api = {
-  endpoints: {
-    settings: "/settings/",
-    galleries: "/galleries/",
-    deleteImage: '/delete-image/',
-    images(gallery, show_mode) {
-      return `/galleries/${gallery}/images/?show_mode=${show_mode}`;
-    },
-    markImage(gallery, img_name) {
-      return `/galleries/${gallery}/images/${img_name}/mark`;
-      
-    }
-  },
-  async getGalleries () {
-    const resp = await fetch(this.endpoints.galleries);
-    return await resp.json();
-  },
-  async getSettings () {
-    const resp = await fetch(this.endpoints.settings);
-    return await resp.json();
-  },
-  async saveSettings (settings) {
-    return await fetch(this.endpoints.settings, {
-      method: 'POST',
-      body: JSON.stringify(settings)
-    });
-  },
-  async getImages(gallery, show_mode) {
-    const url = this.endpoints.images(gallery, show_mode);
-    const resp = await fetch(url);
-     return await resp.json();
-    
-  },
-  async markImage(gallery, img_name) {
-    const resp = await fetch(this.endpoints.markImage(gallery, img_name), 
-      {
-        method: "POST"
-      }
-    );
-    return await resp.json();
-  }, 
-  async deleteImage(gallery, url) {
-    return await fetch(this.endpoints.deleteImage + gallery + "/" + url,
-      {
-        method: "POST"
-      });
-  }
-};
+import XWiper from 'xwiper';
+import api from './api';
+import Sidenav from './components/sidenav.js';
 
 function compareValues(a, b) {
   if (a == b)  {
@@ -234,76 +186,7 @@ const app = {
   }
 };
 
-// side navigation
-const sidenavOpen = document.getElementById("sidenavOpen");
-const sidenavClose = document.getElementById("sidenavClose");
-const sidenav = document.getElementById("sidenav");
-const saveButton = document.getElementById("btnSave");
-
-sidenavOpen.addEventListener("click", () => {
-  sidenav.classList.add("sidenav-open");
-
-
-  const gallsContainer = document.getElementsByClassName("galleries-container")[0];
-  gallsContainer.innerHTML = "";
-
-  Promise.all([app.getGalleries(), app.getSettings()])
-  .then(results => {
-    // draw galleries
-    const galls = results[0];
-    const settings = results[1];
-
-    const selected_gallery = settings && settings.selected_gallery;
-    const show_mode = settings && settings.show_mode;
-    document.getElementById("showMode").value = show_mode;
-
-    galls.map((gallery) => {
-      const elem = document.createElement("a");
-      elem.innerHTML = gallery.title;
-      elem.dataset.id = gallery.slug;
-      elem.href = "javascript:void(0);";
-      if (gallery.slug == selected_gallery) {
-        elem.classList.add("selected");
-        elem.dataset.active = "true";
-      }
-
-      elem.onclick = () => {
-        if (elem.classList.contains("selected")) {
-          return;
-        }
-        const prevSelected =
-        document.querySelector(".galleries-container a.selected");
-        if (prevSelected) {
-          prevSelected.classList.remove("selected");
-        }
-        elem.classList.add("selected");
-      };
-      
-      gallsContainer.append(elem);
-    });
-  });
-
-});
-
-function closeSidenav() {
-  sidenav.classList.remove("sidenav-open");
-}
-
-sidenavClose.addEventListener("click", closeSidenav);
-
-saveButton.addEventListener("click", () => {
-  const settings = {
-    show_mode: document.getElementById("showMode").value,
-    selected_gallery: document.querySelector(".galleries-container a.selected").dataset.id
-  };
-  
-  app.saveSettings(settings)
-  .catch(error => console.log(error.message))
-  .finally(() => {
-    closeSidenav();
-    app.drawNextImage();
-  });
-});
+const sidenav = new Sidenav(app);
 
 function ImageButtons(app) {
   this.app = app
@@ -353,5 +236,21 @@ const panel = new ImageButtons(app);
 const xwiper = new XWiper("#imageContainer");
 xwiper.onSwipeLeft(() => app.drawNextImage());
 xwiper.onSwipeRight(() => app.drawPrevImage());
+
+document.addEventListener("keydown", (event) => {
+  switch (event.code) {
+    case "KeyR":
+      app.drawRandomImage();
+      break;
+    case "ArrowLeft":
+      app.drawPrevImage();
+      break;
+    case "ArrowRight":
+      app.drawNextImage();
+      break;
+    default:
+      break;
+  }
+})
 
 app.start();
