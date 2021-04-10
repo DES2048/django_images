@@ -54,8 +54,8 @@ export default class App {
   }
   _setXWiper() {
     const xwiper = new XWiper("#imageContainer");
-    xwiper.onSwipeLeft(() => app.drawNextImage());
-    xwiper.onSwipeRight(() => app.drawPrevImage());
+    xwiper.onSwipeLeft(() => this.drawNextImage());
+    xwiper.onSwipeRight(() => this.drawPrevImage());
   }
   _setEventHandlers() {
     document.addEventListener("keydown", (event) => {
