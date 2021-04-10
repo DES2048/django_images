@@ -1,3 +1,5 @@
+import { PickerSettings } from "../models";
+
 // side navigation
 export default class Sidenav {
   constructor(app) {
@@ -59,7 +61,7 @@ export default class Sidenav {
 
     this.gallsContainer.innerHTML = "";
 
-    Promise.all([this.app.getGalleries(), this.app.getSettings()]).then(
+    Promise.all([this.app.getGalleries(), this.app.fetchSettings()]).then(
       (results) => {
         // draw galleries
         const galls = results[0];
@@ -77,19 +79,20 @@ export default class Sidenav {
     this.sidenav.classList.remove("sidenav-open");
   }
   handleSaveButton(event) {
-    const settings = {
-      show_mode: this.showMode.value,
-      selected_gallery: document.querySelector(
-        ".galleries-container a.selected"
-      ).dataset.id,
-    };
+    const settings = new PickerSettings(
+      {
+        show_mode: this.showMode.value,
+        selected_gallery: document.querySelector(
+          ".galleries-container a.selected"
+        ).dataset.id,
+      }
+    );
 
     this.app
       .saveSettings(settings)
       .catch((error) => console.log(error.message))
       .finally(() => {
         this.closeSidenav();
-        this.app.drawNextImage();
       });
   }
 }
