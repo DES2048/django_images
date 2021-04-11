@@ -1,4 +1,6 @@
 import { PickerSettings } from "../models";
+import SimpleBar from 'simplebar'
+import 'simplebar/dist/simplebar.css';
 
 // side navigation
 export default class Sidenav {
@@ -11,7 +13,9 @@ export default class Sidenav {
     this.sidenav = document.getElementById("sidenav");
     this.saveButton = document.getElementById("btnSave");
     this.showMode = document.getElementById("showMode");
-    this.gallsContainer = document.querySelector('#sidenav .galleries-container');
+    this.gallsContainer = new SimpleBar(
+      document.querySelector('#sidenav .galleries-container'))
+      .getContentElement();
 
     // events listeners
     this.openButton.addEventListener("click", this.handleOpenSidenav.bind(this));

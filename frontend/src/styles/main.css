@@ -36,82 +36,106 @@ body {
 }
 
 .responsive {
-    display: block;
-    margin: 0 auto;
-    max-width: 100%;
-    max-height: 95%;
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 95%;
 }
 
 .error-message {
-    text-align: center;
-    color: red;
-    padding: 10px;
+  text-align: center;
+  color: red;
+  padding: 10px;
 }
 
 /* sidenav */
 
 .sidenav {
-  height: 100%; /* 100% Full-height */
+  height: 100vh; /* 100% Full-height */
   width: 0;
   max-width: 0;
   position: fixed; /* Stay in place */
   z-index: 1; /* Stay on top */
   top: 0; /* Stay at the top */
   left: 0;
-  background-color: black; /* Black*/
-  color: #818181;
-  overflow-x: hidden; /* Disable horizontal scroll */
-  padding-top: 10px;
+  overflow: hidden; /* Disable horizontal scroll */
   transition: 0.5s; /* 0.5 second transition effect to slide in the sidenav */
 }
 .sidenav-open {
-    width: 100%;
-    max-width: 430px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 430px;
 }
-.sidenav-title {
-    font-size: 25px;
-    color: #818181;
-    padding: 8px 8px 8px 32px;
-}
-/* The navigation menu links */
-.galleries-container a {
-  padding: 8px 8px 8px 32px;
-  text-decoration: none;
-  font-size: 25px;
+.sidenav-content {
+  padding: 10px 10px 10px 30px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: black; /* Black*/
   color: #818181;
-  display: block;
-  transition: 0.3s;
-}
-.show-mode {
-    display: flex;
-    padding: 8px 8px 8px 32px;
-    align-items: center;
 }
 
-.show-mode span {
-    color: #818181;
+.sidenav-content a {
+  text-decoration: none;
+  color: #818181;
 }
-.galleries-container a.selected {
-    border: 1px solid #f1f1f1;
-}
-/* When you mouse over the navigation links, change their color */
-.sidenav a:hover {
+
+.sidenav-content a:hover {
   color: #f1f1f1;
 }
 
-/* Position and style the close button (top right corner) */
-.sidenav .closebtn {
-  position: absolute;
-  top: 0;
-  right: 25px;
-  font-size: 36px;
-  margin-left: 50px;
+.sidenav-title {
+  display: flex;
+  align-items: center;
+  font-size: 25px;
+  padding-bottom: 10px;
+}
+.sidenav-title h2 {
+  margin: 0;
+  font-size: 25px;
 }
 
+/* Position and style the close button (top right corner) */
+.sidenav-title .closebtn {
+  font-size: 30px;
+  margin-left: auto;
+  font-weight: 600;
+}
 
+.galleries-container {
+  flex: 1 1 auto;
+  max-height: calc(100vh - 120px);
+  /*overflow-y: auto; */
+}
+/* The navigation menu links */
+.galleries-container a {
+  padding: 8px 0px 8px 8px;
+  font-size: 25px;
+  display: block;
+  transition: 0.3s;
+}
+
+.simplebar-scrollbar::before {
+  background-color: #818181;
+}
+.show-mode {
+  display: flex;
+  padding: 0 0px 8px 0px;
+  align-items: center;
+}
+
+.galleries-container a.selected {
+  border: 1px solid #f1f1f1;
+}
+/* When you mouse over the navigation links, change their color */
+
+#btnSave {
+  font-size: 30px;
+}
 .show-mode select {
-    flex-grow: 1;
-    margin-left: 5px;
+  flex-grow: 1;
+  margin-left: 5px;
 }
 
 /* buttons panel */
@@ -121,9 +145,9 @@ body {
   position: fixed;
   width: 100%;
   bottom: 0;
-  left:0;
+  left: 0;
   height: auto;
-  background-color: rgba(1, 1, 1, 0.0);
+  background-color: rgba(1, 1, 1, 0);
 }
 
 .btn-panel {
@@ -133,7 +157,8 @@ body {
   text-decoration: none !important;
 }
 
-.btn-panel:focus, .btn-panel:active {
+.btn-panel:focus,
+.btn-panel:active {
   outline: none !important ;
   box-shadow: none !important ;
 }
