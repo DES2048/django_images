@@ -35,7 +35,7 @@ export default class App {
 
     // special debug settings
     this.debug = {
-      fakeDelete: true, // detect that image will delete only from data.images
+      fakeDelete: false, // detect that image will delete only from data.images
     };
 
     this.data = {
