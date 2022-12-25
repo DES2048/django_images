@@ -15,8 +15,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.static import serve as static_serve
+from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('image_picker.urls')),
 ]
+
+if not settings.DEBUG:
+    urlpatterns += [
+        path('static/<path:path>', static_serve,  {
+            'document_root': settings.STATIC_ROOT}),
+    ]

@@ -21,7 +21,8 @@ BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 env = environ.Env(
     ALLOWED_HOSTS=(list, 
         ['127.0.0.1',]
-    )
+    ),
+    DJANGO_VITE_DEV_MODE=(bool,False)
 )
 env.read_env()
 
@@ -45,8 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_vite',
     'rest_framework',
-    'webpack_loader',
     'image_picker',
 ]
 
@@ -139,7 +140,18 @@ WEBPACK_LOADER = {
 }
 
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / "static_root"
 STATICFILES_DIRS = [
-    FRONTEND_DIST
+    BASE_DIR / 'frontend_dist',
 ]
 
+CSRF_TRUSTED_ORIGINS=["http://127.0.0.1:8000",]
+
+# vite integration
+DJANGO_VITE_ASSETS_PATH = BASE_DIR / 'frontend_dist'
+if DEBUG:
+    DJANGO_VITE_MANIFEST_PATH =  DJANGO_VITE_ASSETS_PATH / 'manifest.json' 
+
+
+DJANGO_VITE_DEV_MODE = env("DJANGO_VITE_DEV_MODE")
+DJANGO_VITE_DEV_SERVER_PORT = 3000
