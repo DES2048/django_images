@@ -21,7 +21,7 @@ from .models import Gallery
 def home(request):
     return render(
         request,
-        'image_picker/index.html'
+        'image_picker/index_vue.html'
     )
 
 # TODO wraps to serializer
