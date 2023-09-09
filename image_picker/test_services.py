@@ -1,64 +1,58 @@
+from typing import Dict, cast
+from unittest.mock import Mock
+from django.contrib.sessions.backends.base import SessionBase
 from django.test import TestCase
-from unittest.mock import MagicMock
-
-from .services import (
-    ShowMode,
-    PickerSettings
-)
-
-def SessionMock(data):
-    mock = MagicMock()
-    mock.__getitem__.return_value = data
-    mock.get.return_value = data
-    return mock
+from .services import PickerSettings, ShowMode, DEFAULT_SHOW_MODE, SETTINGS_SESSION_KEY
 
 
-class PickerSettingTestCase(TestCase):
-    @classmethod 
-    def setUp(cls):
-        
-        cls._defaultSettingsDict = {
-            "selected_gallery": "",
-            "show_mode": "unmarked"
-        }    
+class PickerSettingsTestCase(TestCase):
 
-    def test_to_dict(self):
-        to = PickerSettings("favorite").to_dict()
-
-        expect = {
-            "selected_gallery": 'favorite',
-            "show_mode": ShowMode.UNMARKED
-        }
-
-        self.assertDictEqual(to, expect)
+    def test_default_settings(self):
+        settings = PickerSettings.default_settings()
+        self.assertEqual(settings.selected_gallery, "")
+        self.assertEqual(settings.show_mode,DEFAULT_SHOW_MODE)
 
     def test_from_session(self):
+        # session mock
+        request = Mock()
+        request.session = SessionBase()
 
-        # if no session yet return default
-        request_mock = MagicMock()
-        request_mock.session = SessionMock(data=None)
-
-        to = PickerSettings.from_session(request_mock).to_dict()
-        
-        request_mock.session.get.assert_called_with("picker_config")
-        self.assertDictEqual(to, self._defaultSettingsDict)
-
-        # or return data in session
-        ret_val = self._defaultSettingsDict
-        ret_val['selected_gallery'] = "favorites"
-        request_mock.session = SessionMock(data=ret_val)
-
-        to = PickerSettings.from_session(request_mock).to_dict()
-        self.assertDictEqual(to, ret_val)
-
-    def test_to_session(self):
-        request_mock = MagicMock()
-        request_mock.session = MagicMock()
-
-        settings = PickerSettings("favorites", ShowMode.ALL)
-        settings.to_session(request_mock)
-
-        request_mock.session.__setitem__.assert_called_with(
-            'picker_config',
+        # for empty settings in session return default settings
+        settings = PickerSettings.from_session(request)
+        self.assertDictEqual(
+            {'selected_gallery': "",
+            'show_mode': DEFAULT_SHOW_MODE},
             settings.to_dict()
         )
+
+        # if settings exists in session returns it
+        expected = {
+            'selected_gallery': "Gallery",
+            'show_mode': ShowMode.ALL 
+        }
+        session = SessionBase()
+        session[SETTINGS_SESSION_KEY] = expected
+        request.session = session
+        settings = PickerSettings.from_session(request)
+        self.assertDictEqual(
+            expected,
+            settings.to_dict()
+        )
+
+    def test_to_session(self):
+        gall = "Gallery"
+        show = ShowMode.ALL
+        request = Mock()
+        request.session = SessionBase()
+        settings = PickerSettings(gall, show)
+        settings.to_session(request)
+
+        self.assertIsNotNone(request.session.get(SETTINGS_SESSION_KEY))
+        data = cast(Dict[str,str],request.session.get(SETTINGS_SESSION_KEY))
+        self.assertEqual(data.get("selected_gallery"), gall)
+        self.assertEqual(data.get("show_mode"), show)
+    
+class ViewsTestCase(TestCase):
+
+    def test_get_settings(self):
+        pass

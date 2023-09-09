@@ -70,36 +70,43 @@ class ImageInfo:
     self.mod_date = path.stat().st_mtime * 1000
 
 
+SETTINGS_SESSION_KEY = "picker_config"
+DEFAULT_SHOW_MODE = ShowMode.UNMARKED
 class PickerSettings:
     
     @staticmethod
-    def from_session(request):
-        data = request.session.get("picker_config")
-        defaults = {
-            'selected_gallery': "",
-        }
+    def default_settings():
+        return PickerSettings("", DEFAULT_SHOW_MODE)
 
+    @staticmethod
+    def from_session(request):
+        data = request.session.get(SETTINGS_SESSION_KEY)
+    
         if data:
             return PickerSettings(
                 data.get('selected_gallery', ''),
-                data.get('show_mode', ShowMode.UNMARKED)
+                data.get('show_mode', DEFAULT_SHOW_MODE)
             )
         else:
-            return PickerSettings(**defaults)
+            return PickerSettings.default_settings()
 
-    def __init__(self, selected_gallery, show_mode=ShowMode.UNMARKED):
+    def __init__(self, selected_gallery:str="", show_mode=DEFAULT_SHOW_MODE):
         self._selected_gallery = selected_gallery
-        self.show_mode = show_mode
+        self._show_mode = show_mode
 
     @property
     def selected_gallery(self):
         return self._selected_gallery
 
+    @property
+    def show_mode(self):
+        return self._show_mode
+    
     def to_session(self, request):
-        request.session["picker_config"] = self.to_dict()
+        request.session[SETTINGS_SESSION_KEY] = self.to_dict()
 
     def to_dict(self):
         return {
             "selected_gallery": self._selected_gallery,
-            "show_mode": self.show_mode
+            "show_mode": self._show_mode
         }
