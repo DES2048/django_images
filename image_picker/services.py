@@ -1,73 +1,107 @@
-from functools import partial
 import re
 from glob import iglob
-import os
 from pathlib import Path
-from django.urls import reverse
+from typing import TypedDict, Protocol
 
+from .models import Gallery
+
+class ImageDict(TypedDict):
+    name: str
+    marked: bool
+    mod_time: float
+
+class GalleryProto(Protocol):
+    dir_path: str
+    slug: str
+    title: str
 
 class ShowMode:
     ALL = 'all'
     MARKED = 'marked'
     UNMARKED = "unmarked"
+    MODES_LIST = [ALL, MARKED, UNMARKED]
 
 
-class ImageHelper:
-    def __init__(self, dirname=".", show_mode="unmarked"):
+def is_file_marked(filename:str|Path) -> bool:
+    file = filename if type(filename) == Path else Path(filename)
+    return file.stem.endswith("_")    
 
-        resolved_path = str(Path(dirname).resolve()) + '/*.*'
+class ImagesException(Exception):
+    pass
+
+# TODO wraps image/images to image info class
+class FSImagesProvider():
+    
+    @classmethod
+    def get_mod_time(cls, filename:str|Path) -> float:
+        file = filename if type(filename) == Path else Path(filename)
+        return file.stat().st_mtime * 1000
+    
+    def __init__(self, gallery:Gallery) -> None:
+        self._gallery = gallery
+        self._dirpath = Path(gallery.dir_path).resolve()
+
+    def get_images(self, show_mode=ShowMode.UNMARKED) -> list[ImageDict]:
+        path_all_files = str(self._dirpath / '*.*')
 
         fname_regex = r".+"
         ext_regex = r"\.(jpg|png|jpeg|gif|webp)$"
 
-        if show_mode == "unmarked":
+        if show_mode == ShowMode.UNMARKED:
             fname_regex += r"[^_]"
-        elif show_mode == "marked":
+        elif show_mode == ShowMode.MARKED:
             fname_regex += "_"
 
         fname_regex += ext_regex
-
-        self._images = list(filter(partial(re.match, fname_regex), iglob(resolved_path)))
-	
-    @property
-    def images(self):
-	       return self._images
+        regex = re.compile(fname_regex, re.IGNORECASE)
+        return list(
+            {
+                "name": file.name,
+                "marked": is_file_marked(file.name),
+                "mod_time": self.get_mod_time(file)
+            }
+            for file in map(Path, filter(regex.match, iglob(path_all_files)))
+        )
     
-    @classmethod
-    def is_marked(cls, image_name):
-        return Path(image_name).stem.endswith("_")
+    def check_parent(self, imagename:str) -> bool:
+        return self._dirpath == (self._dirpath / imagename).parent
+    
+    def check_parent_and_raise(self, imagename:str) -> bool:
+        if not self.check_parent(imagename):
+            raise ImagesException(
+                f"image {imagename} doesn't belong to gallery {self._gallery.dir_path}"
+            )
+        return True
+    
+    def get_image_path(self, imagename:str) -> Path:
+        """" Returns full images path relative to galery by imagename"""
+        file = self._dirpath / imagename
+        if not file.exists():
+            raise FileNotFoundError(f"file {imagename} doesn't exist in gallery {self._dirpath}")
+        return file
 
-    @classmethod    
-    def mark_image(cls, image):
-        ext_start_index = image.rfind('.')
-        filename = image[0: ext_start_index]
-        extension = image[ext_start_index:]
-
-        new_filename = filename + '_' + extension
-
-        os.replace(image, new_filename)
+    def mark_image(self, imagename:str) -> ImageDict:
         
-        return new_filename
+        self.check_parent_and_raise(imagename)
+        
+        file = self.get_image_path(imagename)
 
+        if not is_file_marked(file):
+            new_filename = file.with_name(file.stem + "_"+ file.suffix)
+            file.rename(new_filename)
+            # update new filename
+            file = new_filename
+        return {
+                "name": file.name,
+                "marked": True,
+                "mod_time": self.get_mod_time(file)
+            }
 
-    def delete_image(self, image):
-        os.remove(image)
-        self.images.remove(image)
+    def delete_image(self, imagename:str) -> None:
+        self.check_parent_and_raise(imagename)
 
-
-class ImageInfo:
-  
-  def __init__(self, gallery_id, img_path):
-    path = Path(img_path)
-    self.name = path.name
-    self.url = reverse(
-      "get-image",
-		  kwargs={
-			  "gallery_slug" : gallery_id,
-			  "image_url" : self.name
-    })
-    self.marked = ImageHelper.is_marked(self.name)
-    self.mod_date = path.stat().st_mtime * 1000
+        del_path = self.get_image_path(imagename)
+        del_path.unlink()
 
 
 SETTINGS_SESSION_KEY = "picker_config"

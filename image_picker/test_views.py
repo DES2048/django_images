@@ -1,10 +1,12 @@
 from pathlib import Path
+from typing import cast
 import tempfile
 from unittest import skip
 from unittest.mock import Mock, patch
 from django.urls import reverse
 
 from rest_framework.test import APITestCase
+from rest_framework.response import Response
 
 from image_picker.services import is_file_marked
 
@@ -91,4 +93,61 @@ class ImagesTestCase(APITestCase):
         url = reverse("get-image", args=["gallery", "not_exists"])
         resp = self.client.get(url)
 
+        self.assertEqual(resp.status_code, 404)
+    
+    def test_mark_image(self):
+
+        # already marked
+        marked = self.tmp_dir_path / "marked_.jpg"
+        marked.touch()
+
+        url = reverse("mark-image", args=["gallery", "marked_.jpg"])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
         self.assertEqual(resp.status_code, 200)
+
+        # check data
+        self.assertIn("name", cast(dict,resp.data))
+        self.assertEqual(cast(dict,resp.data)["name"], "marked_.jpg")
+        self.assertTrue(cast(dict,resp.data)["marked"])
+        
+        #check marked
+        for_mark = self.tmp_dir_path / "for_mark.jpg"
+        for_mark.touch()
+
+        url = reverse("mark-image", args=["gallery", for_mark.name])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 200)
+
+        # check data
+        data = cast(dict,resp.data)
+        self.assertEqual(data["name"], for_mark.stem + "_" + for_mark.suffix)
+        self.assertTrue(data["marked"])
+
+        # check file doesnt exists
+        url = reverse("mark-image", args=["gallery", "mark_not_exists.jpg"])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 404)
+
+    def test_delete_image(self):
+        for_delete = self.tmp_dir_path / "for_delete.jpg"
+        for_delete.touch()
+
+        # test normal deletion
+        url = reverse("delete-image", args=["gallery", for_delete.name])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 204)
+
+        # test doesn't exist
+        url = reverse("delete-image", args=["gallery", "not_exists_for_del.jpg"])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 404)

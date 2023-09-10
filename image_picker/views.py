@@ -1,99 +1,96 @@
-import os
-import json
-from pathlib import Path
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, FileResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.http import FileResponse, HttpRequest, HttpResponse, Http404
 from django.urls import reverse
-
-from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework import status, generics, viewsets
+from rest_framework.decorators import action, api_view
+from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework import generics
-from rest_framework.parsers import JSONParser
 
-from .services import ImageHelper, ImageInfo, PickerSettings
+from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE
 from .serializers import GallerySerializer, SettingsSerializer
 from .models import Gallery
 
+# TODO mechanizm for checking ingoing image names /urls
+# TODO images views to viewset
+# TODO image serializer
 
-def home(request):
+
+def home(request:HttpRequest) -> HttpResponse:
     return render(
         request,
         'image_picker/index_vue.html'
     )
 
-# TODO wraps to serializer
-def images(request, gallery_slug):
-	
-	gallery = get_object_or_404(Gallery, pk=gallery_slug)
-	show_mode = request.GET.get("show_mode", "unmarked")
-	
-	helper = ImageHelper(
-            gallery.dir_path,
-            show_mode
-    )
-	
-	data = [
-	  ImageInfo(gallery_slug, name).__dict__ for name in helper.images]
-	
-	return JsonResponse(
-		data=data,
-		safe=False
-	)
+@api_view(['GET'])
+def images(request:Request, gallery_slug) -> Response:
+
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
+    show_mode = request.GET.get("show_mode", DEFAULT_SHOW_MODE)
+
+    helper = FSImagesProvider(gallery)
+    
+    images = helper.get_images(show_mode=show_mode)
+
+    data = [
+        {**image, 
+         "url": reverse("get-image", kwargs={
+                                        "gallery_slug":gallery_slug,
+                                        "image_url": image["name"]
+                                      })
+        } for image in images
+    ]
+    return Response(data=data)
 	
 
-def get_image(request, gallery_slug, image_url):
+def get_image(_, gallery_slug:str, image_url:str) -> FileResponse:
     
     gallery = get_object_or_404(Gallery, pk=gallery_slug)
-    # TODO potential security vulnerable
-    fname = os.path.join(gallery.dir_path, image_url)
-
+    
+    try:
+        fname = FSImagesProvider(gallery).get_image_path(image_url)
+    except FileNotFoundError as e:
+        raise Http404(e.strerror)
     return FileResponse(
         open(fname, 'rb')
     )
 
 
-@csrf_exempt
-@require_POST
-def mark_image(request, gallery_slug, image_url):
-  gallery = get_object_or_404(Gallery, pk=gallery_slug)
-  img_path = os.path.join(
-    gallery.dir_path, 
-    image_url)
+@api_view(['POST'])
+def mark_image(_, gallery_slug:str, image_url:str) -> Response:
   
-  new_img_path = ImageHelper.mark_image(
-    img_path)
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
   
-  data = ImageInfo(
-    gallery_slug, new_img_path).__dict__
+    helper = FSImagesProvider(gallery)
+    try:
+        image_info = helper.mark_image(image_url)
+    except FileNotFoundError as e:
+        raise Http404(e.strerror)
     
-  return JsonResponse(
-    data=data,
-    status=200)
+    data = {
+        **image_info,
+        "url": reverse("get-image", kwargs={
+                                        "gallery_slug":gallery_slug,
+                                        "image_url": image_info["name"]
+                                      })
+    }
+    return Response(data=image_info)
 
   
-@csrf_exempt
-def delete_image(request, gallery_slug, image_url):
-    if request.method == "POST":
-       
-        gallery = get_object_or_404(Gallery, pk=gallery_slug)
-        fname = os.path.join(gallery.dir_path, image_url)
+@api_view(['POST'])
+def delete_image(_, gallery_slug:str, image_url:str) -> Response:
 
-        os.remove(fname)
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
+    helper = FSImagesProvider(gallery)
+    
+    try:
+        helper.delete_image(image_url)
+    except FileNotFoundError as e:
+        raise Http404(e.strerror)
 
-        return JsonResponse(
-            data={},
-            status=200
-        )
-    else:
-        return JsonResponse(
-            data={},
-            status=405
-        )
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
-
+# TODO Validate gallery and show_mode from session stil exists
+# TODO Move to ApiView or GenericApiView class    
 @api_view(['GET', 'POST'])
 def settings(request):
     if request.method == 'GET':
@@ -112,3 +109,22 @@ def settings(request):
 class GalleryListApiView(generics.ListAPIView):
     serializer_class = GallerySerializer
     queryset = Gallery.objects.all()
+
+
+class GalleryViewSet(viewsets.ViewSet):
+
+    def list(self, request):
+        qs = Gallery.objects.all()
+        s = GallerySerializer(instance=qs, many=True)
+        return Response(s.data)
+    
+    @action(detail=False)
+    def images(self, request:Request, gallery_slug:str) -> Response:
+        gallery = get_object_or_404(Gallery, pk=gallery_slug)
+        show_mode = request.GET.get("show_mode", DEFAULT_SHOW_MODE)
+	
+        helper = FSImagesProvider(gallery)
+    
+        data = helper.get_images(show_mode=show_mode)
+	
+        return Response(data=data)
