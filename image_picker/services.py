@@ -89,20 +89,24 @@ class FSImagesProvider():
             raise FileNotFoundError(f"file {imagename} doesn't exist in gallery {self._dirpath}")
         return file
 
-    def mark_image(self, imagename:str) -> ImageDict:
+    def mark_image(self, imagename:str, mark:bool=True) -> ImageDict:
         
         self.check_parent_and_raise(imagename)
         
         file = self.get_image_path(imagename)
 
-        if not is_file_marked(file):
+        new_filename: Path| None = None
+        if mark and not is_file_marked(file):
             new_filename = file.with_name(file.stem + "_"+ file.suffix)
+        elif not mark and is_file_marked(file):
+            new_filename = file.with_name(file.stem[:-1] + file.suffix)
+    
+        if new_filename:
             file.rename(new_filename)
-            # update new filename
             file = new_filename
         return {
                 "name": file.name,
-                "marked": True,
+                "marked": mark,
                 "mod_time": self.get_mod_time(file)
             }
 

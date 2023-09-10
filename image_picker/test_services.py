@@ -140,3 +140,15 @@ class FSImageProviderTestCase(TestCase):
         provider.mark_image(oldfile.name)
         self.assertFalse(oldfile.exists(), "OLD FILE STILL EXISTS")
         self.assertTrue(newfile.exists(), "MARK FILE DOESNT EXIST")
+    
+    def test_unmark_image(self):
+        oldfile = Path(self.tmpdir_path / "for_unmark_.jpg")
+        newfile = Path(self.tmpdir_path / "for_unmark.jpg")
+        oldfile.touch()
+
+        gallery = Mock()
+        gallery.dir_path = self.tmpdir.name
+        provider = FSImagesProvider(gallery)
+        provider.mark_image(oldfile.name, mark=False)
+        self.assertFalse(oldfile.exists(), "OLD FILE STILL EXISTS")
+        self.assertTrue(newfile.exists(), "MARK FILE DOESNT EXIST")

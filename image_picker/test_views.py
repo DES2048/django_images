@@ -100,7 +100,7 @@ class ImagesTestCase(APITestCase):
         marked = self.tmp_dir_path / "marked_.jpg"
         marked.touch()
 
-        url = reverse("mark-image", args=["gallery", "marked_.jpg"])
+        url = reverse("mark-image", args=["gallery", marked.name])
         resp = cast(Response,self.client.post(url))
 
         # check status
@@ -128,6 +128,45 @@ class ImagesTestCase(APITestCase):
 
         # check file doesnt exists
         url = reverse("mark-image", args=["gallery", "mark_not_exists.jpg"])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 404)
+
+    def test_unmark_image(self):
+
+        # check already umarked
+        unmarked = self.tmp_dir_path / "umarked.jpg"
+        unmarked.touch()
+
+        url = reverse("unmark-image", args=["gallery", unmarked.name])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 200)
+
+        # check data
+        self.assertIn("name", cast(dict,resp.data))
+        self.assertEqual(cast(dict,resp.data)["name"], unmarked.name)
+        self.assertFalse(cast(dict,resp.data)["marked"])
+        
+        #check unmark
+        for_unmark = self.tmp_dir_path / "for_unmark_.jpg"
+        for_unmark.touch()
+
+        url = reverse("unmark-image", args=["gallery", for_unmark.name])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 200)
+
+        # check data
+        data = cast(dict, resp.data)
+        self.assertEqual(data["name"], for_unmark.stem[:-1] + for_unmark.suffix)
+        self.assertFalse(data["marked"])
+
+        # check file doesnt exists
+        url = reverse("unmark-image", args=["gallery", "unmark_not_exists.jpg"])
         resp = cast(Response,self.client.post(url))
 
         # check status

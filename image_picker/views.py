@@ -45,7 +45,7 @@ def images(request:Request, gallery_slug:str) -> Response:
     return Response(data=data)
 	
 
-def get_image(_, gallery_slug:str, image_url:str) -> FileResponse:
+def get_image(_:HttpRequest, gallery_slug:str, image_url:str) -> FileResponse:
     
     gallery = get_object_or_404(Gallery, pk=gallery_slug)
     
@@ -59,13 +59,13 @@ def get_image(_, gallery_slug:str, image_url:str) -> FileResponse:
 
 
 @api_view(['POST'])
-def mark_image(_, gallery_slug:str, image_url:str) -> Response:
+def mark_image(_, gallery_slug:str, image_url:str, mark:bool=True) -> Response:
   
     gallery = get_object_or_404(Gallery, pk=gallery_slug)
   
     helper = FSImagesProvider(gallery)
     try:
-        image_info = helper.mark_image(image_url)
+        image_info = helper.mark_image(image_url, mark=mark)
     except FileNotFoundError as e:
         raise Http404(e.strerror)
     
