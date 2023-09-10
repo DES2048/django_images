@@ -1,9 +1,17 @@
 import re
 from glob import iglob
 from pathlib import Path
-from typing import TypedDict, Protocol
+from typing import TypedDict, Protocol, TypeAlias, Literal, cast
 
+from django.http import HttpRequest
+from django.conf import settings
 from .models import Gallery
+
+class MySettings(Protocol):
+    DEBUG: bool
+
+
+settings = cast(MySettings, settings)
 
 class ImageDict(TypedDict):
     name: str
@@ -21,6 +29,7 @@ class ShowMode:
     UNMARKED = "unmarked"
     MODES_LIST = [ALL, MARKED, UNMARKED]
 
+ShowModeA: TypeAlias = Literal["all", "marked", "unmarked"]
 
 def is_file_marked(filename:str|Path) -> bool:
     file = filename if type(filename) == Path else Path(filename)
@@ -41,7 +50,7 @@ class FSImagesProvider():
         self._gallery = gallery
         self._dirpath = Path(gallery.dir_path).resolve()
 
-    def get_images(self, show_mode=ShowMode.UNMARKED) -> list[ImageDict]:
+    def get_images(self, show_mode:ShowModeA=ShowMode.UNMARKED) -> list[ImageDict]:
         path_all_files = str(self._dirpath / '*.*')
 
         fname_regex = r".+"
@@ -103,6 +112,11 @@ class FSImagesProvider():
         del_path = self.get_image_path(imagename)
         del_path.unlink()
 
+# Picker settings
+class PickerSettingsDict(TypedDict):
+    selected_gallery: str
+    show_mode: ShowModeA
+
 
 SETTINGS_SESSION_KEY = "picker_config"
 DEFAULT_SHOW_MODE = ShowMode.UNMARKED
@@ -113,7 +127,7 @@ class PickerSettings:
         return PickerSettings("", DEFAULT_SHOW_MODE)
 
     @staticmethod
-    def from_session(request):
+    def from_session(request:HttpRequest):
         data = request.session.get(SETTINGS_SESSION_KEY)
     
         if data:
@@ -124,23 +138,23 @@ class PickerSettings:
         else:
             return PickerSettings.default_settings()
 
-    def __init__(self, selected_gallery:str="", show_mode=DEFAULT_SHOW_MODE):
+    def __init__(self, selected_gallery:str="", show_mode:ShowModeA=DEFAULT_SHOW_MODE):
         self._selected_gallery = selected_gallery
         self._show_mode = show_mode
 
     @property
-    def selected_gallery(self):
+    def selected_gallery(self) -> str:
         return self._selected_gallery
 
     @property
-    def show_mode(self):
-        return self._show_mode
+    def show_mode(self) -> ShowModeA:
+        return cast(ShowModeA,self._show_mode)
     
-    def to_session(self, request):
+    def to_session(self, request:HttpRequest) -> None:
         request.session[SETTINGS_SESSION_KEY] = self.to_dict()
 
-    def to_dict(self):
+    def to_dict(self) -> PickerSettingsDict:
         return {
             "selected_gallery": self._selected_gallery,
-            "show_mode": self._show_mode
+            "show_mode": cast(ShowModeA,self._show_mode)
         }

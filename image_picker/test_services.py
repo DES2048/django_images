@@ -2,7 +2,6 @@ import os
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from typing import Dict, cast
-from unittest import skip
 from unittest.mock import Mock
 from django.contrib.sessions.backends.base import SessionBase
 from django.test import TestCase
@@ -59,7 +58,7 @@ class PickerSettingsTestCase(TestCase):
     
 class FSImageProviderTestCase(TestCase):
     
-    tmpdir:TemporaryDirectory
+    tmpdir:TemporaryDirectory[str]
     tmpdir_path: Path
 
     @classmethod

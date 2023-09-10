@@ -1,20 +1,19 @@
 from pathlib import Path
 from typing import cast
 import tempfile
-from unittest import skip
-from unittest.mock import Mock, patch
+
+from unittest.mock import Mock
 from django.urls import reverse
 
 from rest_framework.test import APITestCase
 from rest_framework.response import Response
-
-from image_picker.services import is_file_marked
 
 from  .models import Gallery
 
 stat_mock = Mock()
 stat_mock.stat = Mock(return_value={'st_mtime':1000})
 
+# TODO test for checks all attribute of return image infos
 class ImagesTestCase(APITestCase):
     
     @classmethod
