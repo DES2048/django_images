@@ -115,6 +115,17 @@ class GalleryListApiView(generics.ListAPIView): # type: ignore
     queryset = Gallery.objects.all()
 
 
+@api_view(['POST'])
+def pin_unpin_gallery(_, gallery_slug:str, pin:bool=True) -> Response:
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
+  
+    gallery.pinned = pin
+    gallery.save()
+
+    s = GallerySerializer(gallery)
+    
+    return Response(data=s.data)
+
 class GalleryViewSet(viewsets.ViewSet):
 
     def list(self, request:Request):

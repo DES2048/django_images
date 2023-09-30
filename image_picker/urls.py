@@ -1,12 +1,14 @@
 from django.urls import path
 #from rest_framework.routers import DefaultRouter
 from .views import (
-	home, get_image, delete_image, GalleryListApiView, settings, images, mark_image,
+	home, get_image, delete_image, GalleryListApiView, settings, images, mark_image, pin_unpin_gallery
 )
 
 urlpatterns = [
 	path('', home),
     path('galleries/', GalleryListApiView.as_view()),
+    path('galleries/<slug:gallery_slug>/pin', pin_unpin_gallery, name="pin-gallery"),
+    path('galleries/<slug:gallery_slug>/unpin', pin_unpin_gallery, {"pin": False}, name="unpin-gallery"),
 	path("galleries/<slug:gallery_slug>/images/", images, name="images"),
 	path("galleries/<slug:gallery_slug>/images/<path:image_url>/mark", mark_image, {"mark":True}, name="mark-image"),
     path("galleries/<slug:gallery_slug>/images/<path:image_url>/unmark", mark_image, {"mark":False}, name="unmark-image"),

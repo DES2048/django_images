@@ -1,17 +1,17 @@
 {
   "src/main.ts": {
-    "file": "main.290b0429.js",
+    "file": "main.2894cb31.js",
     "src": "src/main.ts",
     "isEntry": true,
     "dynamicImports": [
       "src/views/AboutView.vue"
     ],
     "css": [
-      "main.bc56ebac.css"
+      "main.e1df2c66.css"
     ]
   },
   "src/views/AboutView.vue": {
-    "file": "AboutView.af25e353.js",
+    "file": "AboutView.d8038eea.js",
     "src": "src/views/AboutView.vue",
     "isDynamicEntry": true,
     "imports": [
@@ -21,12 +21,12 @@
       "AboutView.4d995ba2.css"
     ]
   },
-  "src/main.css": {
-    "file": "main.bc56ebac.css",
-    "src": "src/main.css"
-  },
   "src/views/AboutView.css": {
     "file": "AboutView.4d995ba2.css",
     "src": "src/views/AboutView.css"
+  },
+  "src/main.css": {
+    "file": "main.e1df2c66.css",
+    "src": "src/main.css"
   }
 }

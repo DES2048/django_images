@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import cast
+from typing import cast, Any
 import tempfile
 
 from unittest.mock import Mock
@@ -189,3 +189,49 @@ class ImagesTestCase(APITestCase):
 
         # check status
         self.assertEqual(resp.status_code, 404)
+
+
+class GalleriesViewTestCase(APITestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp_dir = tempfile.TemporaryDirectory()
+        gallery = Gallery()
+        gallery.title = "for-pin-view"
+        gallery.slug = "for-pin_view"
+        gallery.dir_path = cls.tmp_dir.name
+        gallery.save()
+        cls.gallery = gallery
+
+        return super().setUpClass()
+    
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.tmp_dir.cleanup()
+        cls.gallery.delete()
+        return super().tearDownClass()
+    
+    def test_pin(self):
+    
+        url = reverse("pin-gallery", args=[self.gallery.slug])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 200)
+
+        # check pinned
+        data = cast(dict[str, Any], resp.data)
+        self.assertTrue(data["pinned"])
+        self.assertIsNotNone(data["pinned_date"])
+        
+    def test_unpin(self):
+        url = reverse("unpin-gallery", args=[self.gallery.slug])
+        resp = cast(Response,self.client.post(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 200)
+
+        # check pinned
+        data = cast(dict[str, Any], resp.data)
+        self.assertFalse(data["pinned"])
+        self.assertIsNone(data["pinned_date"])

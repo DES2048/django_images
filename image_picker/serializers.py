@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import cast, TypedDict
 from rest_framework import serializers
 from rest_framework.request import Request
@@ -8,11 +9,19 @@ from .services import PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSetting
 # TYPES
 SaveKwargs = TypedDict("SaveKwargs", {"request": Request})
 
+# fields
+class JsUnixDateTimeField(serializers.Field): # type: ignore
+
+    def to_representation(self, value: datetime) -> float:
+        return datetime.timestamp(value)* 1000 if datetime else 0
+
+
 class GallerySerializer(serializers.ModelSerializer[Gallery]):
     
+    pinned_date = JsUnixDateTimeField(read_only=True)
     class Meta: # type: ignore
         model = Gallery
-        fields = ['slug', 'title']
+        fields = ['slug', 'title', "pinned", "pinned_date"]
     
     #Meta = cast(type[serializers.ModelSerializer[Gallery].Meta], _Meta)
 

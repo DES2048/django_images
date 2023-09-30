@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from pathlib import Path
 
 
-def validate_path_exists(value):
+def validate_path_exists(value:str):
 	
 	if not Path(value).exists():
 		raise ValidationError(
@@ -10,7 +10,7 @@ def validate_path_exists(value):
 		)
 
 
-def validate_is_dir(value):
+def validate_is_dir(value:str):
 	if not Path(value).is_dir():
 		raise ValidationError(
 			"Given path is not a directory"
