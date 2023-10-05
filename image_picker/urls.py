@@ -6,7 +6,7 @@ from .views import (
 
 urlpatterns = [
 	path('', home),
-    path('galleries/', GalleryListApiView.as_view()),
+    path('galleries/', GalleryListApiView.as_view(), name="galleries-list"),
     path('galleries/<slug:gallery_slug>/pin', pin_unpin_gallery, name="pin-gallery"),
     path('galleries/<slug:gallery_slug>/unpin', pin_unpin_gallery, {"pin": False}, name="unpin-gallery"),
 	path("galleries/<slug:gallery_slug>/images/", images, name="images"),

@@ -1,3 +1,4 @@
+import os
 from typing import cast
 
 from django.shortcuts import render, get_object_or_404
@@ -113,6 +114,15 @@ def settings(request: Request) -> Response:
 class GalleryListApiView(generics.ListAPIView): # type: ignore
     serializer_class = GallerySerializer
     queryset = Gallery.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        # returns only galleries that exist on filesystem
+        queryset = self.get_queryset()
+
+        galls = list(filter(lambda g: os.path.exists(g.dir_path), queryset))
+
+        serializer = self.get_serializer(galls, many=True)
+        return Response(serializer.data)
 
 
 @api_view(['POST'])

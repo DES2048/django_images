@@ -235,3 +235,34 @@ class GalleriesViewTestCase(APITestCase):
         data = cast(dict[str, Any], resp.data)
         self.assertFalse(data["pinned"])
         self.assertIsNone(data["pinned_date"])
+
+
+class ExistedGalleriesTestCase(APITestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.existed_path = tempfile.TemporaryDirectory()
+        Gallery.objects.all().delete()
+        Gallery.objects.create(title="non-existed", slug="non-existed", dir_path="not_existed_path")
+        Gallery.objects.create(title="existed", slug="existed", dir_path=cls.existed_path.name)
+        return super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        Gallery.objects.all().delete()
+        cls.existed_path.cleanup()
+        return super().tearDownClass()
+    
+    def testReturnOnlyExistedGalleries(self):
+        url = reverse("galleries-list")
+        resp = cast(Response,self.client.get(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 200)
+
+        # check only existed in response
+        data = cast(list[dict[str, Any]], resp.data)
+        # check length
+        self.assertEqual(len(data), 1)
+        # check elem
+        self.assertEqual(data[0]["title"], "existed")
