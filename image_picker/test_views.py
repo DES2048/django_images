@@ -8,7 +8,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework.response import Response
 
-from  .models import Gallery
+from  .models import Gallery, FavoriteImage
 
 stat_mock = Mock()
 stat_mock.stat = Mock(return_value={'st_mtime':1000})
@@ -59,8 +59,10 @@ class ImagesTestCase(APITestCase):
         
         url = reverse("images", args=['gallery']) +"?show_mode=all"
         resp = self.client.get(url)
-        #print(resp.data)
+        self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data), len(self.files_list))
+        # check url
+        self.assertEqual(resp.data[0]["url"], f"/get-image/gallery/{resp.data[0]['name']}")
 
         # unmarked
         url = reverse("images", args=['gallery'])
@@ -266,3 +268,88 @@ class ExistedGalleriesTestCase(APITestCase):
         self.assertEqual(len(data), 1)
         # check elem
         self.assertEqual(data[0]["title"], "existed")
+
+
+class FavoriteImageViewsTestCase(APITestCase):
+    tmp_dir: tempfile.TemporaryDirectory[str]
+    gall1: Gallery
+    gall2: Gallery
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp_dir = tempfile.TemporaryDirectory()
+        Gallery.objects.all().delete()
+        tmp_path = Path(cls.tmp_dir.name)
+        gall1_dir = (tmp_path / "fav1")
+        gall2_dir = (tmp_path / "fav2")
+        gall1_dir.mkdir()
+        gall2_dir.mkdir()
+        cls.gall1 = Gallery.objects.create(title="for-fav-1", slug="for_fav_1", dir_path=gall1_dir)
+        cls.gall2 = Gallery.objects.create(title="for-fav-2", slug="for_fav_2", dir_path=gall2_dir)
+        
+        # create favs
+        cls.fav_images = [{"gallery":cls.gall1.pk, "dir_path":gall1_dir, "name": f"fav1_{i+1}.jpg"} for i in range(5)]
+        cls.fav_images.extend([{"gallery":cls.gall2.pk,  "dir_path":gall2_dir, "name": f"fav2_{i+1}.jpg"} for i in range(6)])
+        
+        # create files
+        for img in cls.fav_images:
+            (img["dir_path"] / img["name"]).touch() # type: ignore
+        for img in cls.fav_images:
+            FavoriteImage.objects.create(gallery_id = img["gallery"], name=img["name"])
+        return super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        Gallery.objects.all().delete()
+        FavoriteImage.objects.all().delete()
+
+        cls.tmp_dir.cleanup()
+        return super().tearDownClass()
+    
+    def test_list_fav_images(self) -> None:
+        
+        url = reverse("fav-images")
+        resp = cast(Response,self.client.get(url))
+
+        # check status
+        self.assertEqual(resp.status_code, 200)
+
+        # check list
+        data = cast(list[dict[str, str]], resp.data)
+        # check length
+        self.assertEqual(len(data), len(self.fav_images))
+
+        # checking data
+        # check has image url
+        self.assertIsNotNone(data[0].get("url", None))
+    
+    def test_add_to_fav(self):
+        exp_image_name = "add_fav1.jpg"
+        # create file
+        (Path(self.gall1.dir_path) / exp_image_name).touch()
+        
+        url = reverse("fav-images")
+        resp = cast(Response,self.client.post(url, {"gallery": self.gall1.pk, "name": exp_image_name},
+                                              format='json'
+                                              ))
+
+        # check status
+        self.assertEqual(resp.status_code, 201)
+        
+        # check created
+        self.assertTrue(FavoriteImage.objects.filter(gallery=self.gall1, name=exp_image_name).exists())
+    
+    def test_delete_from_fav(self):
+        # add image for deletion
+        img_name_for_del ="fav_for_delete.jpg"
+        (Path(self.gall1.dir_path) / img_name_for_del).touch()
+        FavoriteImage.objects.create(gallery=self.gall1, name=img_name_for_del)
+
+        url = reverse("fav-images")
+        resp = cast(Response,self.client.delete(url,  {"gallery": self.gall1.pk, "name": img_name_for_del},
+                                              format='json'))
+        self.assertEqual(resp.status_code, 204)
+
+        # check deleted from db
+        self.assertFalse(FavoriteImage.objects.filter(gallery=self.gall1, name=img_name_for_del).exists())
+        

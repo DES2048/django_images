@@ -5,7 +5,8 @@ from typing import TypedDict, Protocol, TypeAlias, Literal, cast
 
 from django.http import HttpRequest
 from django.conf import settings
-from .models import Gallery
+from django.shortcuts import get_object_or_404
+from .models import Gallery, FavoriteImage
 
 class MySettings(Protocol):
     DEBUG: bool
@@ -17,6 +18,7 @@ class ImageDict(TypedDict):
     name: str
     marked: bool
     mod_time: float
+    is_fav: bool
 
 class GalleryProto(Protocol):
     dir_path: str
@@ -63,11 +65,15 @@ class FSImagesProvider():
 
         fname_regex += ext_regex
         regex = re.compile(fname_regex, re.IGNORECASE)
+
+        # get favorites for this gallery
+        favs_set = FavoriteImagesService.get_favorites_set(self._gallery.pk)
         return list(
             {
                 "name": file.name,
                 "marked": is_file_marked(file.name),
-                "mod_time": self.get_mod_time(file)
+                "mod_time": self.get_mod_time(file),
+                "is_fav": file.name in favs_set
             }
             for file in map(Path, filter(regex.match, iglob(path_all_files)))
         )
@@ -104,10 +110,14 @@ class FSImagesProvider():
         if new_filename:
             file.rename(new_filename)
             file = new_filename
+
+            # update filename in favs
+            FavoriteImagesService.update(self._gallery.pk, imagename, new_filename.name)
         return {
                 "name": file.name,
                 "marked": mark,
-                "mod_time": self.get_mod_time(file)
+                "mod_time": self.get_mod_time(file),
+                "is_fav": FavoriteImagesService.exists(self._gallery.pk, file.name)
             }
 
     def delete_image(self, imagename:str) -> None:
@@ -115,11 +125,62 @@ class FSImagesProvider():
 
         del_path = self.get_image_path(imagename)
         del_path.unlink()
+        # remove it from fav if any
+        if FavoriteImagesService.exists(self._gallery.pk, imagename):
+            FavoriteImagesService.remove(self._gallery.pk, imagename)
+
+
+class FavoriteImagesService:
+    
+    @classmethod
+    def add(cls, gallery_id:str, image_name:str):
+        gall = Gallery.objects.only("pk").get(pk=gallery_id)
+        FavoriteImage.objects.update_or_create(
+            defaults={
+                "name": image_name
+            },
+            gallery=gall, name=image_name
+        )
+
+    @classmethod
+    def remove(cls, gallery_id:str, image_name:str):
+        obj = get_object_or_404(FavoriteImage, gallery=gallery_id, name=image_name)
+        obj.delete()
+    
+
+    @classmethod
+    def update(cls, gallery_id:str, old_image_name:str, new_image_name:str):
+        FavoriteImage.objects.filter(gallery=gallery_id, name=old_image_name) \
+            .update(name=new_image_name)
+
+    @classmethod
+    def exists(cls, gallery_id:str, image_name:str) -> bool:
+        return FavoriteImage.objects.filter(gallery=gallery_id, name=image_name).exists()
+    
+    @classmethod
+    def get_favorites_set(cls, gallery_id: str)-> set[str]:
+        favs = FavoriteImage.objects.filter(gallery=gallery_id).values_list("name", flat=True)
+        return set(favs)
+
+    @classmethod
+    def list_images(cls) -> list[ImageDict]:
+        favs = FavoriteImage.objects.all().select_related()
+
+        return list(
+            {
+                "name": fav.name,
+                "marked": is_file_marked(fav.name),
+                "mod_time": FSImagesProvider.get_mod_time(Path(fav.gallery.dir_path) / fav.name),
+                "is_fav": True
+            }
+            for fav in favs
+        )
 
 # Picker settings
 class PickerSettingsDict(TypedDict):
     selected_gallery: str
     show_mode: ShowModeA
+    fav_images_mode: bool
 
 
 SETTINGS_SESSION_KEY = "picker_config"
@@ -128,24 +189,31 @@ class PickerSettings:
     
     @staticmethod
     def default_settings():
-        return PickerSettings("", DEFAULT_SHOW_MODE)
+        return PickerSettings(
+            selected_gallery="",
+            show_mode=DEFAULT_SHOW_MODE,
+            fav_images_mode=False
+        )
 
     @staticmethod
     def from_session(request:HttpRequest):
         data = request.session.get(SETTINGS_SESSION_KEY)
     
         if data:
+            # set default values if not set in session
             return PickerSettings(
                 data.get('selected_gallery', ''),
-                data.get('show_mode', DEFAULT_SHOW_MODE)
+                data.get('show_mode', DEFAULT_SHOW_MODE),
+                data.get('fav_images_mode', False)
             )
         else:
             return PickerSettings.default_settings()
 
-    def __init__(self, selected_gallery:str="", show_mode:ShowModeA=DEFAULT_SHOW_MODE):
+    def __init__(self, selected_gallery:str="", show_mode:ShowModeA=DEFAULT_SHOW_MODE, fav_images_mode:bool=False):
         self._selected_gallery = selected_gallery
         self._show_mode = show_mode
-
+        self._fav_images_mode = fav_images_mode
+    
     @property
     def selected_gallery(self) -> str:
         return self._selected_gallery
@@ -154,11 +222,16 @@ class PickerSettings:
     def show_mode(self) -> ShowModeA:
         return cast(ShowModeA,self._show_mode)
     
+    @property
+    def fav_images_mode(self) -> bool:
+        return self._fav_images_mode
+    
     def to_session(self, request:HttpRequest) -> None:
         request.session[SETTINGS_SESSION_KEY] = self.to_dict()
 
     def to_dict(self) -> PickerSettingsDict:
         return {
             "selected_gallery": self._selected_gallery,
-            "show_mode": cast(ShowModeA,self._show_mode)
+            "show_mode": cast(ShowModeA,self._show_mode),
+            "fav_images_mode":self._fav_images_mode
         }

@@ -1,10 +1,17 @@
 from datetime import datetime
+from pathlib import Path
+
 from typing import cast, TypedDict
+from typing_extensions import Unpack
+
+from django.urls import reverse
+
 from rest_framework import serializers
 from rest_framework.request import Request
-from typing_extensions import Unpack
-from .models import Gallery
-from .services import PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSettingsDict
+
+from .models import Gallery, FavoriteImage
+from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSettingsDict, ImageDict,
+                       is_file_marked, FSImagesProvider)
 
 # TYPES
 SaveKwargs = TypedDict("SaveKwargs", {"request": Request})
@@ -28,7 +35,7 @@ class GallerySerializer(serializers.ModelSerializer[Gallery]):
 class SettingsSerializer(serializers.Serializer[PickerSettings]):
     selected_gallery = serializers.CharField(max_length=128)
     show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
-
+    fav_images_mode = serializers.BooleanField(default=False)
     
     def validate_selected_gallery(self, value:str) -> str:
         try:
@@ -54,3 +61,42 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
         settings.to_session(kwargs['request'])
         return settings
 
+class ImageSerializer(serializers.Serializer[ImageDict]):
+    name = serializers.CharField(max_length=255, trim_whitespace=False)
+    marked = serializers.BooleanField()
+    mod_time = serializers.FloatField()
+    is_fav = serializers.BooleanField()
+    url = serializers.SerializerMethodField()
+
+    def get_url(self, obj:ImageDict) -> str:
+        return reverse(
+            viewname="get-image", 
+            kwargs={
+                    "gallery_slug":self.context["gallery_slug"],
+                    "image_url": obj["name"]
+            })
+    
+class FavoriteImageSerializer(serializers.ModelSerializer[FavoriteImage]):
+    add_to_fav_date = JsUnixDateTimeField(read_only=True, source="add_date")
+    url = serializers.SerializerMethodField(read_only=True)
+    name = serializers.CharField(max_length=255, trim_whitespace=False)
+    marked = serializers.SerializerMethodField(read_only=True)
+    mod_time = serializers.SerializerMethodField(read_only=True)
+    is_fav = serializers.BooleanField(default=True, read_only=True)
+    class Meta: # type: ignore
+        model = FavoriteImage
+        fields = ["gallery","name", "add_to_fav_date", "url", "mod_time", "is_fav", "marked"]
+    
+    def get_url(self, obj:FavoriteImage) -> str:
+        return reverse(
+            viewname="get-image", 
+            kwargs={
+                    "gallery_slug":obj.gallery_id, # type: ignore
+                    "image_url": obj.name
+            })
+    
+    def get_marked(self, obj:FavoriteImage) -> bool:
+        return is_file_marked(obj.name)
+
+    def get_mod_time(self, obj:FavoriteImage)-> float:
+        return FSImagesProvider.get_mod_time(Path(obj.gallery.dir_path) / obj.name)

@@ -24,3 +24,14 @@ class Gallery(models.Model):
         if not self.pinned and self.pinned_date:
             self.pinned_date = None
         return super().save(force_insert, force_update, using, update_fields)
+
+
+class FavoriteImage(models.Model):
+    gallery = models.ForeignKey(Gallery, on_delete=models.DO_NOTHING, db_index=True)
+    name = models.CharField(max_length=255, db_index=True)
+    add_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta: # type: ignore
+        db_table = "favorite_image"
+        verbose_name = "Favorite image"
+        verbose_name_plural = "Favorite images"
