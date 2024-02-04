@@ -181,7 +181,7 @@ class PickerSettingsDict(TypedDict):
     selected_gallery: str
     show_mode: ShowModeA
     fav_images_mode: bool
-
+    shuffle_pics_when_loaded: bool
 
 SETTINGS_SESSION_KEY = "picker_config"
 DEFAULT_SHOW_MODE = ShowMode.UNMARKED
@@ -192,7 +192,8 @@ class PickerSettings:
         return PickerSettings(
             selected_gallery="",
             show_mode=DEFAULT_SHOW_MODE,
-            fav_images_mode=False
+            fav_images_mode=False,
+            shuffle_pics_when_loaded=False
         )
 
     @staticmethod
@@ -204,16 +205,19 @@ class PickerSettings:
             return PickerSettings(
                 data.get('selected_gallery', ''),
                 data.get('show_mode', DEFAULT_SHOW_MODE),
-                data.get('fav_images_mode', False)
+                data.get('fav_images_mode', False),
+                data.get('shuffle_pics_when_loaded', False)
             )
         else:
             return PickerSettings.default_settings()
 
-    def __init__(self, selected_gallery:str="", show_mode:ShowModeA=DEFAULT_SHOW_MODE, fav_images_mode:bool=False):
+    def __init__(self, selected_gallery:str="", show_mode:ShowModeA=DEFAULT_SHOW_MODE,
+                 fav_images_mode:bool=False, shuffle_pics_when_loaded:bool=False):
         self._selected_gallery = selected_gallery
         self._show_mode = show_mode
         self._fav_images_mode = fav_images_mode
-    
+        self._shuffle_pics_when_loaded = shuffle_pics_when_loaded
+
     @property
     def selected_gallery(self) -> str:
         return self._selected_gallery
@@ -226,6 +230,10 @@ class PickerSettings:
     def fav_images_mode(self) -> bool:
         return self._fav_images_mode
     
+    @property
+    def shuffle_pics_when_loaded(self) ->bool:
+        return self._shuffle_pics_when_loaded
+    
     def to_session(self, request:HttpRequest) -> None:
         request.session[SETTINGS_SESSION_KEY] = self.to_dict()
 
@@ -233,5 +241,6 @@ class PickerSettings:
         return {
             "selected_gallery": self._selected_gallery,
             "show_mode": cast(ShowModeA,self._show_mode),
-            "fav_images_mode":self._fav_images_mode
+            "fav_images_mode":self._fav_images_mode,
+            "shuffle_pics_when_loaded": self._shuffle_pics_when_loaded
         }

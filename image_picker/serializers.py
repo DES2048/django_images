@@ -36,6 +36,7 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
     selected_gallery = serializers.CharField(max_length=128)
     show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
     fav_images_mode = serializers.BooleanField(default=False)
+    shuffle_pics_when_loaded = serializers.BooleanField(default=False)
     
     def validate_selected_gallery(self, value:str) -> str:
         try:
