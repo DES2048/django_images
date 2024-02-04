@@ -40,6 +40,12 @@ def is_file_marked(filename:str|Path) -> bool:
 class ImagesException(Exception):
     pass
 
+class ImageNotFound(ImagesException):
+    pass
+
+class ImageAlreadyExists(ImagesException):
+    pass
+
 # TODO wraps image/images to image info class
 class FSImagesProvider():
     
@@ -88,10 +94,10 @@ class FSImagesProvider():
             )
         return True
     
-    def get_image_path(self, imagename:str) -> Path:
+    def get_image_path(self, imagename:str, raise_not_found:bool=True) -> Path:
         """" Returns full images path relative to galery by imagename"""
         file = self._dirpath / imagename
-        if not file.exists():
+        if not file.exists() and raise_not_found:
             raise FileNotFoundError(f"file {imagename} doesn't exist in gallery {self._dirpath}")
         return file
 
@@ -119,6 +125,27 @@ class FSImagesProvider():
                 "mod_time": self.get_mod_time(file),
                 "is_fav": FavoriteImagesService.exists(self._gallery.pk, file.name)
             }
+    
+    def rename_image(self, old_name:str, new_name:str) -> ImageDict:
+        old = self.get_image_path(old_name)
+        new = self.get_image_path(new_name, raise_not_found=False)
+
+        if not old.exists():
+            raise ImageNotFound(f"filename {old_name} not found in {self._gallery.title}")
+
+        if new.exists():
+            raise ImageAlreadyExists(f"filename {new_name} already exists in {self._gallery.title}")
+        
+        new = old.rename(new)
+
+        # update in fav if any
+        upd_result = FavoriteImagesService.update(self._gallery.pk, old_name, new_name)
+        return {
+            "name": new.name,
+            "marked": is_file_marked(new.name),
+            "mod_time": self.get_mod_time(new),
+            "is_fav": upd_result > 0
+        }
 
     def delete_image(self, imagename:str) -> None:
         self.check_parent_and_raise(imagename)
@@ -149,8 +176,8 @@ class FavoriteImagesService:
     
 
     @classmethod
-    def update(cls, gallery_id:str, old_image_name:str, new_image_name:str):
-        FavoriteImage.objects.filter(gallery=gallery_id, name=old_image_name) \
+    def update(cls, gallery_id:str, old_image_name:str, new_image_name:str) -> int:
+        return FavoriteImage.objects.filter(gallery=gallery_id, name=old_image_name) \
             .update(name=new_image_name)
 
     @classmethod
@@ -159,13 +186,14 @@ class FavoriteImagesService:
     
     @classmethod
     def get_favorites_set(cls, gallery_id: str)-> set[str]:
+        
         favs = FavoriteImage.objects.filter(gallery=gallery_id).values_list("name", flat=True)
         return set(favs)
 
     @classmethod
     def list_images(cls) -> list[ImageDict]:
         favs = FavoriteImage.objects.all().select_related()
-
+        # TODO filter files that doesnt exist
         return list(
             {
                 "name": fav.name,

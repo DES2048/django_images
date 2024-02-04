@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 
-from typing import cast, TypedDict
+from typing import Any, cast, TypedDict
 from typing_extensions import Unpack
 
 from django.urls import reverse
@@ -37,7 +37,7 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
     show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
     fav_images_mode = serializers.BooleanField(default=False)
     shuffle_pics_when_loaded = serializers.BooleanField(default=False)
-    
+
     def validate_selected_gallery(self, value:str) -> str:
         try:
             Gallery.objects.get(pk=value)
@@ -101,3 +101,28 @@ class FavoriteImageSerializer(serializers.ModelSerializer[FavoriteImage]):
 
     def get_mod_time(self, obj:FavoriteImage)-> float:
         return FSImagesProvider.get_mod_time(Path(obj.gallery.dir_path) / obj.name)
+
+
+class NewImageNameSerializer(serializers.Serializer): # type: ignore
+    old_name = serializers.CharField(max_length=256, write_only=True, trim_whitespace=False)
+    new_name = serializers.CharField(max_length=256, write_only=True,trim_whitespace=False)
+
+    def __init__(self, data: Any, gallery: Gallery, *args, **kwargs):
+        self.gallery = gallery
+        super().__init__(None, data, *args, **kwargs)
+    
+    def validate_old_name(self, old_name: str) -> str:
+        gall_path = Path(self.gallery.dir_path)
+
+        if not (gall_path / old_name).exists():
+            raise serializers.ValidationError(f"image {old_name} doesn't exist in {self.gallery.title}")
+        
+        return old_name
+
+    def validate_new_name(self, new_name: str) -> str:
+        gall_path = Path(self.gallery.dir_path)
+
+        if (gall_path / new_name).exists():
+            raise serializers.ValidationError(f"image {new_name} already exists in {self.gallery.title}")
+        
+        return new_name

@@ -10,8 +10,9 @@ from rest_framework.decorators import action, api_view
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA
-from .serializers import GallerySerializer, SettingsSerializer, FavoriteImageSerializer, ImageSerializer
+from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA, ImageAlreadyExists, ImageNotFound
+from .serializers import ( GallerySerializer, SettingsSerializer, FavoriteImageSerializer,
+                          ImageSerializer, NewImageNameSerializer)
 from .models import Gallery, FavoriteImage
 
 # TODO mechanizm for checking ingoing image names /urls
@@ -67,7 +68,24 @@ def mark_image(_, gallery_slug:str, image_url:str, mark:bool=True) -> Response:
     serializer = ImageSerializer(instance=image_info, context={"gallery_slug":gallery_slug})
     return Response(data=serializer.data)
 
-  
+
+@api_view(['POST'])
+def rename_image(request:Request , gallery_slug:str) -> Response:
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
+
+    serializer = NewImageNameSerializer(data=request.data, gallery=gallery)
+    if serializer.is_valid():
+        helper = FSImagesProvider(gallery)
+        image_info = helper.rename_image(
+            serializer.validated_data.get("old_name"),
+            serializer.validated_data.get("new_name")
+        )
+        serializer = ImageSerializer(instance=image_info, context={"gallery_slug":gallery_slug})
+        return Response(data=serializer.data)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(['POST'])
 def delete_image(_, gallery_slug:str, image_url:str) -> Response:
 
