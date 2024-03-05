@@ -10,8 +10,8 @@ from rest_framework import serializers
 from rest_framework.request import Request
 
 from .models import Gallery, FavoriteImage
-from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSettingsDict, ImageDict,
-                       is_file_marked, FSImagesProvider)
+from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSettingsDict,
+                       ImageDict,is_file_marked, FSImagesProvider)
 
 # TYPES
 SaveKwargs = TypedDict("SaveKwargs", {"request": Request})
@@ -21,6 +21,12 @@ class JsUnixDateTimeField(serializers.Field): # type: ignore
 
     def to_representation(self, value: datetime) -> float:
         return datetime.timestamp(value)* 1000 if datetime else 0
+
+
+class PrimaryKeyField(serializers.PrimaryKeyRelatedField):
+
+    def to_representation(self, obj):
+        return obj
 
 
 class GallerySerializer(serializers.ModelSerializer[Gallery]):
@@ -33,6 +39,7 @@ class GallerySerializer(serializers.ModelSerializer[Gallery]):
     #Meta = cast(type[serializers.ModelSerializer[Gallery].Meta], _Meta)
 
 class SettingsSerializer(serializers.Serializer[PickerSettings]):
+    #selected_gallery = PrimaryKeyField(queryset=Gallery.objects.all())
     selected_gallery = serializers.CharField(max_length=128)
     show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
     fav_images_mode = serializers.BooleanField(default=False)
@@ -126,3 +133,29 @@ class NewImageNameSerializer(serializers.Serializer): # type: ignore
             raise serializers.ValidationError(f"image {new_name} already exists in {self.gallery.title}")
         
         return new_name
+
+
+class CopyMoveImageSerializer(serializers.Serializer): # type: ignore
+    image_name = serializers.CharField(max_length=256, write_only=True, trim_whitespace=False)
+    dst_gallery= serializers.CharField(max_length=128, write_only=True)
+    move = serializers.BooleanField(write_only=True, default=False)
+
+    def __init__(self, data: Any, src_gallery: Gallery, *args, **kwargs):
+        self.src_gallery = src_gallery
+        super().__init__(None, data, *args, **kwargs)
+    
+    def validate_image_name(self, img_name: str) -> str:
+        gall_path = Path(self.src_gallery.dir_path)
+        print(gall_path)
+        if not (gall_path / img_name).exists():
+            raise serializers.ValidationError(f"image {img_name} doesn't exist in {self.src_gallery.title}")
+        
+        return img_name
+
+    def validate_dst_gallery(self, value:str) -> str:
+        obj = None
+        try:
+            obj = Gallery.objects.get(pk=value)
+        except Gallery.DoesNotExist:
+            raise serializers.ValidationError(f" gallery '{value}' doesn't exist")
+        return obj

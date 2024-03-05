@@ -1,6 +1,7 @@
 import re
 from glob import iglob
 from pathlib import Path
+from shutil import copy2
 from typing import TypedDict, Protocol, TypeAlias, Literal, cast
 
 from django.http import HttpRequest
@@ -146,6 +147,24 @@ class FSImagesProvider():
             "mod_time": self.get_mod_time(new),
             "is_fav": upd_result > 0
         }
+
+    def copy_move_image(self, gallery_dst: Gallery, img_name: str, move:bool=False):
+        old_file = self.get_image_path(img_name)
+        new_file = Path(gallery_dst.dir_path, img_name)
+
+        if not old_file.exists():
+            raise ImageNotFound(f"filename {img_name} not found in {self._gallery.title}")
+
+        if new_file.exists():
+            raise ImageAlreadyExists(f"filename {img_name} already exists in {self._gallery.title}")
+    
+        if move:
+            old_file.rename(new_file)
+            fav = FavoriteImagesService()
+            fav.remove(self._gallery.pk, img_name)
+            fav.add(gallery_dst.pk, img_name)
+        else:
+            copy2(str(old_file), str(new_file))
 
     def delete_image(self, imagename:str) -> None:
         self.check_parent_and_raise(imagename)

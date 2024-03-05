@@ -11,8 +11,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA, ImageAlreadyExists, ImageNotFound
-from .serializers import ( GallerySerializer, SettingsSerializer, FavoriteImageSerializer,
-                          ImageSerializer, NewImageNameSerializer)
+from .serializers import ( GallerySerializer, SettingsSerializer, FavoriteImageSerializer,ImageSerializer, NewImageNameSerializer, CopyMoveImageSerializer)
+
 from .models import Gallery, FavoriteImage
 
 # TODO mechanizm for checking ingoing image names /urls
@@ -82,6 +82,23 @@ def rename_image(request:Request , gallery_slug:str) -> Response:
         )
         serializer = ImageSerializer(instance=image_info, context={"gallery_slug":gallery_slug})
         return Response(data=serializer.data)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def copy_move_image(request:Request , gallery_slug:str) -> Response:
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
+
+    serializer = CopyMoveImageSerializer(data=request.data, src_gallery=gallery)
+    if serializer.is_valid():
+        helper = FSImagesProvider(gallery)
+        helper.copy_move_image(
+            serializer.validated_data.get("dst_gallery"),
+            serializer.validated_data.get("image_name"),
+            serializer.validated_data.get("move")
+        )
+        return Response(data=None)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
