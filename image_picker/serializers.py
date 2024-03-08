@@ -137,7 +137,7 @@ class NewImageNameSerializer(serializers.Serializer): # type: ignore
 
 class CopyMoveImageSerializer(serializers.Serializer): # type: ignore
     image_name = serializers.CharField(max_length=256, write_only=True, trim_whitespace=False)
-    dst_gallery= serializers.CharField(max_length=128, write_only=True)
+    dst_gallery= serializers.PrimaryKeyRelatedField(queryset=Gallery.objects.all())
     move = serializers.BooleanField(write_only=True, default=False)
 
     def __init__(self, data: Any, src_gallery: Gallery, *args, **kwargs):
@@ -149,13 +149,12 @@ class CopyMoveImageSerializer(serializers.Serializer): # type: ignore
         print(gall_path)
         if not (gall_path / img_name).exists():
             raise serializers.ValidationError(f"image {img_name} doesn't exist in {self.src_gallery.title}")
-        
+
         return img_name
 
-    def validate_dst_gallery(self, value:str) -> str:
-        obj = None
-        try:
-            obj = Gallery.objects.get(pk=value)
-        except Gallery.DoesNotExist:
-            raise serializers.ValidationError(f" gallery '{value}' doesn't exist")
-        return obj
+    def validate(self, attrs: Any) -> Any:
+        path = Path(attrs["dst_gallery"].dir_path) / attrs["image_name"]
+        if path.exists():
+            raise serializers.ValidationError({"image_name": [f"image '{attrs['image_name']}' already exist in '{attrs['dst_gallery'].pk}'"]})
+
+        return attrs

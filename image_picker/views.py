@@ -10,7 +10,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA, ImageAlreadyExists, ImageNotFound
+from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA
 from .serializers import ( GallerySerializer, SettingsSerializer, FavoriteImageSerializer,ImageSerializer, NewImageNameSerializer, CopyMoveImageSerializer)
 
 from .models import Gallery, FavoriteImage
