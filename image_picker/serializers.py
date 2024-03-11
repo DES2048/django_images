@@ -34,8 +34,9 @@ class GallerySerializer(serializers.ModelSerializer[Gallery]):
     pinned_date = JsUnixDateTimeField(read_only=True)
     class Meta: # type: ignore
         model = Gallery
-        fields = ['slug', 'title', "pinned", "pinned_date"]
-    
+        fields = ['slug', 'title', "pinned", "pinned_date", "dir_path"]
+        #extra_kwargs = {'dir_path': {'write_only': True}}
+
     #Meta = cast(type[serializers.ModelSerializer[Gallery].Meta], _Meta)
 
 class SettingsSerializer(serializers.Serializer[PickerSettings]):

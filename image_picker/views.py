@@ -134,7 +134,7 @@ def settings(request: Request) -> Response:
     return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-class GalleryListApiView(generics.ListAPIView): # type: ignore
+class GalleryListApiView(generics.ListCreateAPIView): # type: ignore
     serializer_class = GallerySerializer
     queryset = Gallery.objects.all()
 
@@ -147,6 +147,11 @@ class GalleryListApiView(generics.ListAPIView): # type: ignore
         serializer = self.get_serializer(galls, many=True)
         return Response(serializer.data)
 
+
+class GalleryRetUpdDelView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = GallerySerializer
+    queryset = Gallery.objects.all()
+    lookup_field = "slug"
 
 @api_view(['POST'])
 def pin_unpin_gallery(_, gallery_slug:str, pin:bool=True) -> Response:
