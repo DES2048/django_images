@@ -26,6 +26,21 @@ class Gallery(models.Model):
         return super().save(force_insert, force_update, using, update_fields)
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=128, primary_key=True)
+
+    class Meta: #type: ignore
+        db_table = "tag"
+
+class Image(models.Model):
+    filename = models.CharField(max_length=255, db_index=True)
+    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, db_index=True)
+    tags = models.ManyToManyField(Tag) # type:ignore
+    
+    class Meta: # type: ignore
+        db_table="image"
+        verbose_name_plural = "Images"
+
 class FavoriteImage(models.Model):
     gallery = models.ForeignKey(Gallery, on_delete=models.DO_NOTHING, db_index=True)
     name = models.CharField(max_length=255, db_index=True)

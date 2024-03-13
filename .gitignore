@@ -6,3 +6,4 @@ changes.txt
 .vscode/
 .env
 static_root/
+frontend_dist/

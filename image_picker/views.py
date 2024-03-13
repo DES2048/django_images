@@ -11,9 +11,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA
-from .serializers import ( GallerySerializer, SettingsSerializer, FavoriteImageSerializer,ImageSerializer, NewImageNameSerializer, CopyMoveImageSerializer)
+from .serializers import ( GallerySerializer, SettingsSerializer, FavoriteImageSerializer,
+                          ImageSerializer, NewImageNameSerializer, CopyMoveImageSerializer, TagSerializer,
+                          ImageTagsUpdateSerializer)
 
-from .models import Gallery, FavoriteImage
+from .models import Gallery, FavoriteImage, Tag, Image
 
 # TODO mechanizm for checking ingoing image names /urls
 # TODO images views to viewset
@@ -201,3 +203,46 @@ class FavoriteImageListCreateApiView(generics.ListCreateAPIView, # type: ignore
         self.check_object_permissions(self.request, obj)
 
         return obj
+
+
+class TagListCreateApiView(generics.ListCreateAPIView): # type: ignore
+    serializer_class = TagSerializer
+    queryset = Tag.objects.all()
+
+class TagRetUpdDelApiView(generics.RetrieveUpdateDestroyAPIView): # type: ignore
+    serializer_class = TagSerializer
+    queryset = Tag.objects.all()
+
+
+@api_view(["GET", "POST"])
+def image_tags(request: Request, gallery_slug:str, image_url:str) -> Response:
+    gallery = get_object_or_404(Gallery, pk=gallery_slug)
+    provider = FSImagesProvider(gallery)
+    images_qs = Image.objects.filter(filename=image_url, gallery=gallery)
+    image = images_qs[0] if images_qs else None
+
+    if not provider.image_exists(image_url):
+        return Response(status=404)
+    
+    if request.method == "GET":
+       if image:
+           tags = [{"name": t.name for t in image.tags.all()}]
+           return Response(data=tags, status=200)
+       else:
+           return Response(data=[], status=200)
+    else:
+        serializer = ImageTagsUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            # adding tags
+            if not image:
+                image = Image.objects.create(gallery=gallery, filename=image_url)
+            tags = serializer.validated_data["tags"]
+            if not tags:
+                image.tags.clear()
+                image.save()
+            else:
+                image.tags.add(*tags)
+            return Response(status=200)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

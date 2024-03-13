@@ -9,7 +9,7 @@ from django.urls import reverse
 from rest_framework import serializers
 from rest_framework.request import Request
 
-from .models import Gallery, FavoriteImage
+from .models import Gallery, FavoriteImage, Tag
 from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSettingsDict,
                        ImageDict,is_file_marked, FSImagesProvider)
 
@@ -159,3 +159,20 @@ class CopyMoveImageSerializer(serializers.Serializer): # type: ignore
             raise serializers.ValidationError({"image_name": [f"image '{attrs['image_name']}' already exist in '{attrs['dst_gallery'].pk}'"]})
 
         return attrs
+
+
+class TagSerializer(serializers.ModelSerializer[Tag]):
+    class Meta: # type:ignore
+        model = Tag
+        fields = ["name"]
+
+class ImageTagsUpdateSerializer(serializers.Serializer): # type: ignore
+    tags = serializers.ListField(child=serializers.CharField(max_length=128))
+
+    def validate_tags(self, value:list[str]) -> list[str]:
+        if not value:
+            return value
+        if not Tag.objects.filter(pk__in=value).exists():
+            raise serializers.ValidationError("Invalid tag ids")
+        return value
+            

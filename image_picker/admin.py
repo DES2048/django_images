@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Gallery, FavoriteImage
+from .models import Gallery, FavoriteImage, Tag, Image
 
 class WidgetAttrsMixin:
     widgets_attrs = {}
@@ -29,3 +29,13 @@ class GalleryAdmin(WidgetAttrsMixin, admin.ModelAdmin):
 @admin.register(FavoriteImage)
 class FavImageAdmin(admin.ModelAdmin):
     list_display = ("gallery", "name")
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(Image)
+class ImageAdmin(admin.ModelAdmin):
+    pass

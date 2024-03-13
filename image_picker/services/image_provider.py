@@ -147,3 +147,6 @@ class FSImagesProvider():
         # remove it from fav if any
         if FavoriteImagesService.exists(self._gallery.pk, imagename):
             FavoriteImagesService.remove(self._gallery.pk, imagename)
+    
+    def image_exists(self, imagename:str) -> bool:
+        return self.get_image_path(imagename).exists()
