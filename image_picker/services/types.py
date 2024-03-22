@@ -1,4 +1,6 @@
-from typing import Literal, Protocol, TypeAlias, TypedDict
+from dataclasses import dataclass
+from typing import Literal, Protocol, TypeAlias, TypedDict 
+from ..models import Gallery
 
 class ShowMode:
     ALL = 'all'
@@ -20,8 +22,16 @@ class ImageDict(TypedDict):
     mod_time: float
     is_fav: bool
 
+
+@dataclass
+class ImagesFilter:
+    gallery: Gallery
+    tags: list[int] | None = None
+
+
 class PickerSettingsDict(TypedDict):
     selected_gallery: str
     show_mode: ShowModeA
     fav_images_mode: bool
     shuffle_pics_when_loaded: bool
+    selected_tags: list[int]

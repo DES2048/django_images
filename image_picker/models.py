@@ -27,7 +27,7 @@ class Gallery(models.Model):
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=128, primary_key=True)
+    name = models.CharField(max_length=128, db_index=True, unique=True)
 
     class Meta: #type: ignore
         db_table = "tag"
@@ -35,11 +35,21 @@ class Tag(models.Model):
 class Image(models.Model):
     filename = models.CharField(max_length=255, db_index=True)
     gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, db_index=True)
-    tags = models.ManyToManyField(Tag) # type:ignore
+    tags = models.ManyToManyField(Tag, db_constraint=True, through="ImageTag") # type: ignore
     
     class Meta: # type: ignore
         db_table="image"
         verbose_name_plural = "Images"
+        unique_together = ["filename", "gallery"]
+
+class ImageTag(models.Model):
+    image = models.ForeignKey(Image, on_delete=models.CASCADE)
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
+    add_date = models.DateTimeField(auto_now_add=True)
+
+    class Meta: # type: ignore
+        db_table = "image_tags"
+        unique_together = ["image", "tag"]
 
 class FavoriteImage(models.Model):
     gallery = models.ForeignKey(Gallery, on_delete=models.DO_NOTHING, db_index=True)

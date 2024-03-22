@@ -45,6 +45,7 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
     show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
     fav_images_mode = serializers.BooleanField(default=False)
     shuffle_pics_when_loaded = serializers.BooleanField(default=False)
+    selected_tags = serializers.ListField(child=serializers.IntegerField())
 
     def validate_selected_gallery(self, value:str) -> str:
         try:
@@ -59,6 +60,12 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
         
         return value
     
+    def validate_selected_tags(self, value:list[str]) -> list[str]:
+        if not value:
+            return value
+        if not Tag.objects.filter(pk__in=value).exists():
+            raise serializers.ValidationError("Invalid tag ids")
+        return value
    
     def save(self, **kwargs:Unpack[SaveKwargs]) -> PickerSettings:  # type: ignore
         data = cast(PickerSettingsDict, self.validated_data)
@@ -164,10 +171,10 @@ class CopyMoveImageSerializer(serializers.Serializer): # type: ignore
 class TagSerializer(serializers.ModelSerializer[Tag]):
     class Meta: # type:ignore
         model = Tag
-        fields = ["name"]
+        fields = ["id", "name"]
 
 class ImageTagsUpdateSerializer(serializers.Serializer): # type: ignore
-    tags = serializers.ListField(child=serializers.CharField(max_length=128))
+    tags = serializers.ListField(child=serializers.IntegerField())
 
     def validate_tags(self, value:list[str]) -> list[str]:
         if not value:

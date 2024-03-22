@@ -10,7 +10,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA
+from .services import PickerSettings, FSImagesProvider, DEFAULT_SHOW_MODE, ShowModeA, ImagesFilter
 from .serializers import ( GallerySerializer, SettingsSerializer, FavoriteImageSerializer,
                           ImageSerializer, NewImageNameSerializer, CopyMoveImageSerializer, TagSerializer,
                           ImageTagsUpdateSerializer)
@@ -34,9 +34,16 @@ def images(request:Request, gallery_slug:str) -> Response:
     gallery = get_object_or_404(Gallery, pk=gallery_slug)
     show_mode = request.GET.get("show_mode", DEFAULT_SHOW_MODE)
 
+    # get tags 
+    tagsRaw = request.query_params.getlist("tags")
+    tags = []
+    if isinstance(tagsRaw, list):
+        tags = [int(t) for t in tagsRaw]
+
     helper = FSImagesProvider(gallery)
-    
-    images = helper.get_images(show_mode=cast(ShowModeA, show_mode))
+    images_filter:ImagesFilter = ImagesFilter(gallery=gallery, tags=tags)
+
+    images = helper.get_images(show_mode=cast(ShowModeA, show_mode), images_filter=images_filter)
     serializer = ImageSerializer(instance=images, many=True, context={"gallery_slug": gallery_slug}) # type: ignore
     
     return Response(data=serializer.data)
@@ -218,15 +225,15 @@ class TagRetUpdDelApiView(generics.RetrieveUpdateDestroyAPIView): # type: ignore
 def image_tags(request: Request, gallery_slug:str, image_url:str) -> Response:
     gallery = get_object_or_404(Gallery, pk=gallery_slug)
     provider = FSImagesProvider(gallery)
-    images_qs = Image.objects.filter(filename=image_url, gallery=gallery)
-    image = images_qs[0] if images_qs else None
-
+    
     if not provider.image_exists(image_url):
         return Response(status=404)
     
+    image = Image.objects.filter(filename=image_url, gallery=gallery).first()
+
     if request.method == "GET":
        if image:
-           tags = [{"name": t.name for t in image.tags.all()}]
+           tags = [{"id": t.id, "name": t.name } for t in image.tags.all().only("id", "name")]
            return Response(data=tags, status=200)
        else:
            return Response(data=[], status=200)

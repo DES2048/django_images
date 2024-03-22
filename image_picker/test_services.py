@@ -7,8 +7,8 @@ from django.contrib.sessions.backends.base import SessionBase
 from django.http import Http404
 from django.test import TestCase
 from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, SETTINGS_SESSION_KEY,
-                       FSImagesProvider, is_file_marked, FavoriteImagesService)
-from .models import FavoriteImage, Gallery
+                       FSImagesProvider, is_file_marked, FavoriteImagesService, ImagesFilter)
+from .models import FavoriteImage, Gallery, Image, Tag
 
 class PickerSettingsTestCase(TestCase):
 
@@ -61,8 +61,14 @@ class PickerSettingsTestCase(TestCase):
 class FSImageProviderTestCase(TestCase):
     
     tmpdir:TemporaryDirectory[str]
+    tmpdir2:TemporaryDirectory[str]
     tmpdir_path: Path
+    tmpdir_path2: Path
     gallery: Gallery
+    gallery2: Gallery
+    tags: list[Tag]
+    filenames:list[str]
+    jpg_filenames:list[str]
 
     @classmethod
     def touch_file(cls, filename:str) -> None:
@@ -72,12 +78,37 @@ class FSImageProviderTestCase(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.tmpdir = TemporaryDirectory()
+        cls.tmpdir2 = TemporaryDirectory()
+
         cls.tmpdir_path = Path(cls.tmpdir.name)
-        
+        cls.tmpdir_path2 = Path(cls.tmpdir2.name)
+
         Gallery.objects.all().delete()
+
         cls.gallery = Gallery.objects.create(title="sample-gall",
                                              slug="sample-gall",
                                              dir_path=cls.tmpdir_path)
+        cls.gallery2 = Gallery.objects.create(title="sample-gall2",
+                                             slug="sample-gall2",
+                                             dir_path=cls.tmpdir_path2)
+        
+        cls.tags = [
+            Tag.objects.create(name= "Super"),
+            Tag.objects.create(name="Classic"),
+        ]
+        cls.filenames = [
+            "1.jpg", "2.jpg", "3.jpg", "4_.jpg", "5_.jpg",
+            "1.gif", "2_.gif", "3.jpeg", "4_.jpeg", "5.png",
+            "6.png", "7_.png", "8_.webp", "9.webp",
+            "10.JPG", "11.PNG", "12.jpg", "for_copy.jpg"
+        ]
+        cls.filenames_set = set(cls.filenames)
+        cls.jpg_filenames = [f for f in cls.filenames if f.endswith("jpg")]
+
+        # create files
+        for f in cls.filenames_set:
+            Path(cls.tmpdir_path / f).touch()
+        
         return super().setUpClass()
     
     @classmethod
@@ -90,36 +121,32 @@ class FSImageProviderTestCase(TestCase):
         return super().tearDownClass()
 
     def test_get_images(self):
-        filenames = [
-            "1.jpg", "2.jpg", "3.jpg", "4_.jpg", "5_.jpg",
-            "1.gif", "2_.gif", "3.jpeg", "4_.jpeg", "5.png",
-            "6.png", "7_.png", "8_.webp", "9.webp",
-            "10.JPG", "11.PNG"
-        ]
-        filenames_set = set(filenames)
-        
-        # create files
-        for f in filenames_set:
-            Path(self.tmpdir_path / f).touch()
         
         # check all files were created
-        self.assertEqual(
-            len(list(self.tmpdir_path.iterdir())),
-            len(filenames_set)
-        )
+        #self.assertEqual(
+        #    len(list(self.tmpdir_path.iterdir())),
+        #    len(filenames_set)
+        #)
 
-         # add favs
-        favs = [filenames[0], filenames[1], filenames[2], filenames[3], filenames[-1]]
+        # add favs
+        favs = [self.filenames[0], self.filenames[1], self.filenames[2], self.filenames[3], self.filenames[-1]]
         for fav in favs:
             FavoriteImagesService.add(self.gallery.pk, fav)
 
+        # add tags for jpg images
+        tag = Tag.objects.create(name="jpg")
+        no_image_tag = Tag.objects.create(name="no-image")
+
+        for filename in self.jpg_filenames:
+            image = Image.objects.create(gallery=self.gallery, filename=filename)
+            image.tags.add(tag) # type: ignore
     
         # test get all images
         provider = FSImagesProvider(self.gallery)
         images = provider.get_images(ShowMode.ALL)
         images_names = {Path(i["name"]).name for i in images}
         self.assertSetEqual(
-            filenames_set,
+            self.filenames_set,
             images_names,
             "ALL images not equal"
         )
@@ -136,10 +163,11 @@ class FSImageProviderTestCase(TestCase):
             given_favs,
             set(favs)
         )
+
         # test get unmarked
         images_names = {Path(i["name"]).name for i in provider.get_images(ShowMode.UNMARKED)}
         self.assertSetEqual(
-            {f for f in filenames_set if not is_file_marked(f)},
+            {f for f in self.filenames_set if not is_file_marked(f)},
             images_names,
             "UNMARKED not equal"
         )
@@ -147,10 +175,26 @@ class FSImageProviderTestCase(TestCase):
         # test get marked
         images_names = {Path(i["name"]).name for i in provider.get_images(ShowMode.MARKED)}
         self.assertSetEqual(
-            {f for f in filenames_set if is_file_marked(f)},
+            {f for f in self.filenames_set if is_file_marked(f)},
             images_names,
             "MARKED NOT equal"
         )
+
+        # test get with tags
+        # get with tag existed
+        images_filter = ImagesFilter(gallery=self.gallery, tags=[tag.pk])
+        images = provider.get_images(show_mode=ShowMode.ALL, images_filter=images_filter)
+        self.assertEqual(len(images), len(self.jpg_filenames))
+
+        # get images with marked
+        images = provider.get_images(show_mode=ShowMode.MARKED, images_filter=images_filter)
+        self.assertEqual(len(images), len([f for f in self.jpg_filenames if f.endswith("_.jpg")]))
+
+        # test get images with no tag
+        # get images with marked
+        images_filter = ImagesFilter(gallery=self.gallery, tags=[no_image_tag.pk])
+        images = provider.get_images(show_mode=ShowMode.MARKED, images_filter=images_filter)
+        self.assertFalse(images)
 
     def test_get_mod_time(self):
         filename = "mod_time.jpg"
@@ -167,15 +211,21 @@ class FSImageProviderTestCase(TestCase):
 
         # add oldfile to fav
         FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
+        # add oldfile to Image
+        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
 
         provider = FSImagesProvider(self.gallery)
         provider.mark_image(oldfile.name)
         self.assertFalse(oldfile.exists(), "OLD FILE STILL EXISTS")
         self.assertTrue(newfile.exists(), "MARK FILE DOESNT EXIST")
-
+        
         # test old file in favs renames to new file
         self.assertFalse(FavoriteImagesService.exists(self.gallery.pk, oldfile.name))
         self.assertTrue(FavoriteImagesService.exists(self.gallery.pk, newfile.name))
+
+        # test filename changed in Image
+        image.refresh_from_db()
+        self.assertEqual(image.filename, newfile.name)
 
     def test_unmark_image(self):
         oldfile = Path(self.tmpdir_path / "for_unmark_.jpg")
@@ -184,6 +234,8 @@ class FSImageProviderTestCase(TestCase):
 
         # add oldfile to fav
         FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
+        # add oldfile to Image
+        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
 
         provider = FSImagesProvider(self.gallery)
         provider.mark_image(oldfile.name, mark=False)
@@ -193,6 +245,116 @@ class FSImageProviderTestCase(TestCase):
          # test old file in favs renames to new file
         self.assertFalse(FavoriteImagesService.exists(self.gallery.pk, oldfile.name))
         self.assertTrue(FavoriteImagesService.exists(self.gallery.pk, newfile.name))
+
+         # test filename changed in Image
+        image.refresh_from_db()
+        self.assertEqual(image.filename, newfile.name)
+    
+    def test_rename_image(self):
+        # smoke test
+        oldfile = Path(self.tmpdir_path / "for_rename_.jpg")
+        newfile = Path(self.tmpdir_path / "renamed.jpg")
+        oldfile.touch()
+
+        # add oldfile to fav
+        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
+        # add oldfile to Image
+        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+
+        provider = FSImagesProvider(self.gallery)
+        provider.rename_image(oldfile.name, newfile.name)
+
+        self.assertFalse(oldfile.exists(), "FILE FOR RENAME STILL EXISTS")
+        self.assertTrue(newfile.exists(), "RENAMED FILE DOESNT EXIST")
+
+         # test old file in favs renames to new file
+        self.assertFalse(FavoriteImagesService.exists(self.gallery.pk, oldfile.name))
+        self.assertTrue(FavoriteImagesService.exists(self.gallery.pk, newfile.name))
+
+         # test filename changed in Image
+        image.refresh_from_db()
+        self.assertEqual(image.filename, newfile.name)
+    
+    def test_delete_image(self):
+        file_for_delete = Path(self.tmpdir_path / "for_delete.jpg")
+        file_for_delete.touch()
+
+        # add file to fav
+        FavoriteImage.objects.create(gallery=self.gallery, name=file_for_delete.name)
+        # add file to Image
+        Image.objects.create(gallery=self.gallery, filename=file_for_delete.name)
+
+        provider = FSImagesProvider(self.gallery)
+        provider.delete_image(file_for_delete.name)
+        self.assertFalse(file_for_delete.exists(), "FILE FOR DELETION STILL EXISTS")
+
+         # test file was removed from favs
+        self.assertFalse(FavoriteImagesService.exists(self.gallery.pk, file_for_delete.name))
+
+         # test filename removed from Image
+        #image.refresh_from_db()
+        self.assertFalse(Image.objects.filter(gallery=self.gallery, filename=file_for_delete.name).exists())
+    
+    def test_copy_image(self):
+        # smoke test
+        oldfile = Path(self.tmpdir_path / "for_copy.jpg")
+        newfile = Path(self.tmpdir_path2 / "for_copy.jpg")
+
+        # add oldfile to fav
+        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
+        # add oldfile to Image
+        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+        # add tags
+        image.tags.add(*self.tags)
+        self.assertEqual(image.tags.count(), len(self.tags))
+                         
+        provider = FSImagesProvider(self.gallery)
+        provider.copy_move_image(self.gallery2, oldfile.name)
+
+        self.assertTrue(oldfile.exists(), "FILE FOR COPY DOESNT EXISTS")
+        self.assertTrue(newfile.exists(), "COPIED FILE DOESNT EXIST")
+
+         # test old file in favs still exists
+        self.assertTrue(FavoriteImagesService.exists(self.gallery.pk, oldfile.name))
+
+         # test filename didnt change in Image
+        image.refresh_from_db()
+        self.assertEqual(image.filename, oldfile.name)
+    
+    def test_move_image(self):
+        # smoke test
+        oldfile = Path(self.tmpdir_path / "for_move.jpg")
+        newfile = Path(self.tmpdir_path2 / "for_move.jpg")
+        oldfile.touch()
+
+        # add oldfile to fav
+        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
+        # add oldfile to Image
+        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+        # add tags
+        image.tags.add(*self.tags)
+        self.assertEqual(image.tags.count(), len(self.tags))
+                         
+        provider = FSImagesProvider(self.gallery)
+        provider.copy_move_image(self.gallery2, oldfile.name, move=True)
+
+        self.assertFalse(oldfile.exists(), "FILE FOR MOVING STILL EXISTS")
+        self.assertTrue(newfile.exists(), "MOVED FILE DOESNT EXIST")
+
+         # test old file in favs changed
+        self.assertFalse(FavoriteImagesService.exists(self.gallery.pk, oldfile.name))
+        self.assertTrue(FavoriteImagesService.exists(self.gallery2.pk, oldfile.name))
+
+        
+        old_Image_qs = Image.objects.filter(gallery=self.gallery, filename=oldfile.name)
+        # test old Image removed
+        self.assertFalse(old_Image_qs.exists())
+        
+        new_Image_qs = Image.objects.filter(gallery=self.gallery2, filename=oldfile.name)
+        # test new Image exist
+        self.assertTrue(new_Image_qs.exists())
+        # test tags moved as well
+        self.assertEqual(new_Image_qs.first().tags.count(), 2)
 
 
 class FavoriteImagesServiceTestCase(TestCase):

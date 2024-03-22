@@ -1,11 +1,11 @@
 import re
-from glob import iglob
 from pathlib import Path
 from shutil import copy2
+#from django.db import connection, reset_queries
 
-from ..models import Gallery
+from ..models import Gallery, ImageTag, Image
 
-from .types import ImageDict, ShowMode, ShowModeA
+from .types import ImageDict, ShowMode, ShowModeA, ImagesFilter
 from .favorite_images import FavoriteImagesService
 from .utils import is_file_marked, get_mod_time
 
@@ -26,15 +26,40 @@ class FSImagesProvider():
     @classmethod
     def get_mod_time(cls, filename:str|Path) -> float:
         return get_mod_time(filename)
+
+    @classmethod
+    def filter_images(cls, images_filter:ImagesFilter):
+        # images filter
+        paths = []
+        filter_tags = images_filter.tags
+        if filter_tags:
+            # filter images by tags
+            #reset_queries()
+            gallery_filter = images_filter.gallery if images_filter.gallery else None
+            images = ImageTag.objects.filter(tag__in=filter_tags, image__gallery=gallery_filter) \
+                .select_related("image__gallery")
+            paths = [Path(image.image.gallery.dir_path) / image.image.filename for image in images]
+            #print(len(connection.queries))
+            paths = list(filter(lambda p:p.exists(), paths))
+        
+        return paths
     
     def __init__(self, gallery:Gallery) -> None:
         self._gallery = gallery
         self._dirpath = Path(gallery.dir_path).resolve()
 
-    def get_images(self, show_mode:ShowModeA=ShowMode.UNMARKED) -> list[ImageDict]:
-        path_all_files = str(self._dirpath / '*.*')
+    def get_images(self, show_mode:ShowModeA=ShowMode.UNMARKED, images_filter:ImagesFilter|None=None) -> list[ImageDict]:
+        if images_filter:
+            images_filter.gallery = self._gallery
+        else:
+            images_filter = ImagesFilter(gallery=self._gallery)
+            
+         # images filter
+        #paths = self.filter_images_by_tags(images_filter)
+        
+        #path_all_files = str(self._dirpath / '*.*')
 
-        fname_regex = r".+"
+        fname_regex = r".*"
         ext_regex = r"\.(jpg|png|jpeg|gif|webp)$"
 
         if show_mode == ShowMode.UNMARKED:
@@ -45,8 +70,17 @@ class FSImagesProvider():
         fname_regex += ext_regex
         regex = re.compile(fname_regex, re.IGNORECASE)
 
+        paths = filter(
+            lambda p: regex.match(p.name),
+            self.filter_images(images_filter) if images_filter.tags \
+                else self._dirpath.glob("*.*")
+        )
+        
         # get favorites for this gallery
-        favs_set = FavoriteImagesService.get_favorites_set(self._gallery.pk)
+        favs_set = FavoriteImagesService.get_favorites_set(self._gallery.pk) #if not paths \
+        #else set(FavoriteImage.objects.filter(name__in=map(lambda p:p.name, paths)).values_list("name", flat=True))
+        
+        
         return list(
             {
                 "name": file.name,
@@ -54,7 +88,9 @@ class FSImagesProvider():
                 "mod_time": self.get_mod_time(file),
                 "is_fav": file.name in favs_set
             }
-            for file in map(Path, filter(regex.match, iglob(path_all_files)))
+            for file in paths
+            # FIXME regex doesnt work properly on only filenames without full path
+            #for file in filter(lambda p:regex.match(p.name), self._dirpath.glob("*.*"))
         )
     
     def check_parent(self, imagename:str) -> bool:
@@ -92,6 +128,8 @@ class FSImagesProvider():
 
             # update filename in favs
             FavoriteImagesService.update(self._gallery.pk, imagename, new_filename.name)
+            # update Image
+            Image.objects.filter(gallery=self._gallery, filename=imagename).update(filename=new_filename.name)
         return {
                 "name": file.name,
                 "marked": mark,
@@ -113,6 +151,8 @@ class FSImagesProvider():
 
         # update in fav if any
         upd_result = FavoriteImagesService.update(self._gallery.pk, old_name, new_name)
+        # update in Images
+        Image.objects.filter(gallery=self._gallery, filename=old_name).update(filename=new_name)
         return {
             "name": new.name,
             "marked": is_file_marked(new.name),
@@ -129,15 +169,33 @@ class FSImagesProvider():
 
         if new_file.exists():
             raise ImageAlreadyExists(f"filename {img_name} already exists in {self._gallery.title}")
-    
+
+        image = Image.objects.filter(gallery=self._gallery, filename=img_name).first()
+
         if move:
             old_file.rename(new_file)
             fav = FavoriteImagesService()
             if fav.exists(self._gallery.pk, img_name):
                 fav.remove(self._gallery.pk, img_name)
                 fav.add(gallery_dst.pk, img_name)
+            
+            # update Image in db if any
+            if image:
+                image.gallery = gallery_dst
+                image.save()
+            
         else:
             copy2(str(old_file), str(new_file))
+            # copy tags
+           
+            if image:
+                # get tags
+                tag_ids = image.tags.all().only("pk").values_list(flat=True)
+                #save copy of image
+                image.pk = None
+                image.gallery = gallery_dst
+                image.save()
+                image.tags.add(*tag_ids)
 
     def delete_image(self, imagename:str) -> None:
         self.check_parent_and_raise(imagename)
@@ -147,6 +205,9 @@ class FSImagesProvider():
         # remove it from fav if any
         if FavoriteImagesService.exists(self._gallery.pk, imagename):
             FavoriteImagesService.remove(self._gallery.pk, imagename)
+        
+        # remove image from Images
+        Image.objects.filter(gallery=self._gallery, filename=imagename).delete()
     
     def image_exists(self, imagename:str) -> bool:
         return self.get_image_path(imagename).exists()

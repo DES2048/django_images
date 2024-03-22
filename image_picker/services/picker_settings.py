@@ -26,22 +26,28 @@ class PickerSettings:
                 data.get('selected_gallery', ''),
                 data.get('show_mode', DEFAULT_SHOW_MODE),
                 data.get('fav_images_mode', False),
-                data.get('shuffle_pics_when_loaded', False)
+                data.get('shuffle_pics_when_loaded', False),
+                data.get('selected_tags', None),
             )
         else:
             return PickerSettings.default_settings()
 
     def __init__(self, selected_gallery:str="", show_mode:ShowModeA=DEFAULT_SHOW_MODE,
-                 fav_images_mode:bool=False, shuffle_pics_when_loaded:bool=False):
+                 fav_images_mode:bool=False, shuffle_pics_when_loaded:bool=False, selected_tags:list[int]|None=None):
         self._selected_gallery = selected_gallery
         self._show_mode = show_mode
         self._fav_images_mode = fav_images_mode
         self._shuffle_pics_when_loaded = shuffle_pics_when_loaded
+        self._selected_tags = selected_tags if selected_tags else []
 
     @property
     def selected_gallery(self) -> str:
         return self._selected_gallery
 
+    @property
+    def selected_tags(self) -> list[int]:
+        return self._selected_tags
+    
     @property
     def show_mode(self) -> ShowModeA:
         return cast(ShowModeA,self._show_mode)
@@ -62,5 +68,6 @@ class PickerSettings:
             "selected_gallery": self._selected_gallery,
             "show_mode": cast(ShowModeA,self._show_mode),
             "fav_images_mode":self._fav_images_mode,
-            "shuffle_pics_when_loaded": self._shuffle_pics_when_loaded
+            "shuffle_pics_when_loaded": self._shuffle_pics_when_loaded,
+            "selected_tags": self._selected_tags,
         }
