@@ -1,4 +1,7 @@
+from typing import Any, cast
+
 from django.shortcuts import get_object_or_404
+from django.db.models import Q, Count
 
 from rest_framework import status, generics
 from rest_framework.decorators import api_view
@@ -14,6 +17,37 @@ from image_picker.models import Gallery, Tag, Image
 class TagListCreateApiView(generics.ListCreateAPIView): # type: ignore
     serializer_class = TagSerializer
     queryset = Tag.objects.all()
+
+    def get_queryset(self) -> Any:
+        qs = super().get_queryset()
+        # get value for count from query params if any
+        count_for_val:str = cast(str, self.request.query_params.get("count-for", ""))
+        
+        # if present annotate each tag with images count in all galleries or in passed gallery
+        if count_for_val:
+            # when asterisk(*) - count for all
+            gall_filter = None
+            if count_for_val == "*":
+                gall_filter = Q()
+            else:
+                # check gallery in db
+                if Gallery.objects.filter(pk=count_for_val).exists():
+                    gall_filter = Q(imagetag__image__gallery=count_for_val)
+            
+            if gall_filter is not None:
+                self.with_count = True
+                qs = qs.annotate(images_count=Count("imagetag__image", filter=gall_filter))
+        
+        return qs
+
+    def get_serializer(self, *args: Any, **kwargs: Any) -> Any:
+        serializer_class = self.get_serializer_class()
+        
+        kwargs.setdefault('context', self.get_serializer_context())
+        with_count = getattr(self, "with_count", False)
+        if with_count:
+            kwargs.setdefault('with_count', True)
+        return serializer_class(*args, **kwargs)
 
 
 class TagRetUpdDelApiView(generics.RetrieveUpdateDestroyAPIView): # type: ignore

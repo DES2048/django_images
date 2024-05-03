@@ -188,9 +188,18 @@ class CopyMoveImageSerializer(serializers.Serializer): # type: ignore
 
 
 class TagSerializer(serializers.ModelSerializer[Tag]):
+    images_count = serializers.IntegerField(read_only=True)
     class Meta: # type:ignore
         model = Tag
-        fields = ["id", "name"]
+        fields = ["id", "name", "images_count"]
+    
+    def __init__(self, *args, **kwargs): # type: ignore
+        with_count = kwargs.pop("with_count", False)
+
+        super().__init__(*args, **kwargs)
+
+        if not with_count:
+            self.fields.pop("images_count")
 
 class ImageTagsUpdateSerializer(serializers.Serializer): # type: ignore
     tags = serializers.ListField(child=serializers.IntegerField())
