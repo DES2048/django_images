@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import cast, Any
 import tempfile
 
+from unittest import SkipTest
 from unittest.mock import Mock
 from django.urls import reverse
 
@@ -9,6 +10,7 @@ from rest_framework.test import APITestCase
 from rest_framework.response import Response
 
 from  .models import Gallery, FavoriteImage
+from  .services import FavoriteImagesService
 
 stat_mock = Mock()
 stat_mock.stat = Mock(return_value={'st_mtime':1000})
@@ -295,7 +297,7 @@ class FavoriteImageViewsTestCase(APITestCase):
         for img in cls.fav_images:
             (img["dir_path"] / img["name"]).touch() # type: ignore
         for img in cls.fav_images:
-            FavoriteImage.objects.create(gallery_id = img["gallery"], name=img["name"])
+            FavoriteImagesService.add(gallery_id = img["gallery"], image_name=img["name"])
         return super().setUpClass()
 
     @classmethod
@@ -323,7 +325,7 @@ class FavoriteImageViewsTestCase(APITestCase):
         # check has image url
         self.assertIsNotNone(data[0].get("url", None))
     
-    def test_add_to_fav(self):
+    def test_add_to_fav_view(self):
         exp_image_name = "add_fav1.jpg"
         # create file
         (Path(self.gall1.dir_path) / exp_image_name).touch()
@@ -337,13 +339,13 @@ class FavoriteImageViewsTestCase(APITestCase):
         self.assertEqual(resp.status_code, 201)
         
         # check created
-        self.assertTrue(FavoriteImage.objects.filter(gallery=self.gall1, name=exp_image_name).exists())
+        self.assertTrue(FavoriteImage.objects.filter(image__gallery=self.gall1, image__filename=exp_image_name).exists())
     
     def test_delete_from_fav(self):
         # add image for deletion
         img_name_for_del ="fav_for_delete.jpg"
         (Path(self.gall1.dir_path) / img_name_for_del).touch()
-        FavoriteImage.objects.create(gallery=self.gall1, name=img_name_for_del)
+        FavoriteImagesService.add(gallery_id=self.gall1.pk, image_name=img_name_for_del)
 
         url = reverse("fav-images")
         resp = cast(Response,self.client.delete(url,  {"gallery": self.gall1.pk, "name": img_name_for_del},
@@ -351,5 +353,5 @@ class FavoriteImageViewsTestCase(APITestCase):
         self.assertEqual(resp.status_code, 204)
 
         # check deleted from db
-        self.assertFalse(FavoriteImage.objects.filter(gallery=self.gall1, name=img_name_for_del).exists())
+        self.assertFalse(FavoriteImage.objects.filter(image__gallery=self.gall1, image__filename=img_name_for_del).exists())
         

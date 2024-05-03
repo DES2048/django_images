@@ -41,6 +41,9 @@ class Image(models.Model):
         db_table="image"
         verbose_name_plural = "Images"
         unique_together = ["filename", "gallery"]
+    
+    def __str__(self) -> str:
+        return self.filename
 
 class ImageTag(models.Model):
     image = models.ForeignKey(Image, on_delete=models.CASCADE)
@@ -52,8 +55,9 @@ class ImageTag(models.Model):
         unique_together = ["image", "tag"]
 
 class FavoriteImage(models.Model):
-    gallery = models.ForeignKey(Gallery, on_delete=models.DO_NOTHING, db_index=True)
-    name = models.CharField(max_length=255, db_index=True)
+    #gallery = models.ForeignKey(Gallery, on_delete=models.DO_NOTHING, db_index=True)
+    #name = models.CharField(max_length=255, db_index=True)
+    image = models.OneToOneField(Image,  on_delete=models.CASCADE, db_index=True)
     add_date = models.DateTimeField(auto_now_add=True)
 
     class Meta: # type: ignore

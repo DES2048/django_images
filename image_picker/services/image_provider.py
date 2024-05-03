@@ -1,9 +1,10 @@
 import re
 from pathlib import Path
 from shutil import copy2
-#from django.db import connection, reset_queries
+from typing import Any, cast
+from django.db.models import Q, ExpressionWrapper, BooleanField
 
-from ..models import Gallery, ImageTag, Image
+from ..models import Gallery, ImageTag, Image, FavoriteImage
 
 from .types import ImageDict, ShowMode, ShowModeA, ImagesFilter
 from .favorite_images import FavoriteImagesService
@@ -26,6 +27,86 @@ class FSImagesProvider():
     @classmethod
     def get_mod_time(cls, filename:str|Path) -> float:
         return get_mod_time(filename)
+
+    @classmethod
+    def get_images_from_db(cls, images_filter:ImagesFilter) ->list[ImageDict]:
+        
+        qs_filter = Q()
+        
+        if images_filter.gallery:
+            qs_filter &= Q(gallery=images_filter.gallery)
+        if images_filter.tags:
+            qs_filter &= Q(tags__in=images_filter.tags)
+        
+        images = Image.objects.select_related("favoriteimage", "gallery").filter(qs_filter).annotate(
+            is_fav=ExpressionWrapper(Q(favoriteimage__isnull=False), output_field=BooleanField())
+        )
+        
+        regex = cls.get_filename_regex(images_filter.show_mode)
+
+        def image_filter(image:Image):
+            p = Path(image.gallery.dir_path) / image.filename
+            return p.exists and regex.match(p.name) 
+
+        filtered_images = filter(
+            image_filter,
+            images
+        )
+         # type: ignore
+        k:list[ImageDict]= [
+            {
+                "name": image.filename,
+                "marked": is_file_marked(image.filename),
+                "mod_time": cls.get_mod_time(Path(image.gallery.dir_path) / image.filename),
+                "is_fav": cast(bool,image.is_fav) # type: ignore
+            }
+            for image in filtered_images
+        ]
+        return k
+    
+    @classmethod
+    def get_filename_regex(cls, show_mode:ShowModeA) -> re.Pattern[str]:
+        fname_regex = r".*"
+        ext_regex = r"\.(jpg|png|jpeg|gif|webp)$"
+
+        if show_mode == ShowMode.UNMARKED:
+            fname_regex += r"[^_]"
+        elif show_mode == ShowMode.MARKED:
+            fname_regex += "_"
+
+        fname_regex += ext_regex
+        return re.compile(fname_regex, re.IGNORECASE)
+    
+    @classmethod
+    def filter_images2(cls, images_filter:ImagesFilter) -> list[ImageDict]:
+        # получим regex для фильтрации
+        regex = cls.get_filename_regex(images_filter.show_mode)
+
+        # фильтруем либо по только по картинкам из бд
+        if images_filter.tags:
+            return cls.get_images_from_db(images_filter)
+
+        # либо по картинкам из файловой системы
+        # получим список файлов и отфильтруем по show_mode и расширениям        
+        paths = filter(
+            lambda p: regex.match(p.name),
+            Path(images_filter.gallery.dir_path).glob("*.*")
+        )
+        
+        # get favorites for this gallery
+        favs_set = FavoriteImagesService.get_favorites_set(images_filter.gallery.pk)
+        
+        # вернем
+        return list(
+            {
+                "name": file.name,
+                "marked": is_file_marked(file.name),
+                "mod_time": cls.get_mod_time(file),
+                "is_fav": file.name in favs_set
+            }
+            for file in paths
+        )
+        
 
     @classmethod
     def filter_images(cls, images_filter:ImagesFilter):
@@ -51,14 +132,13 @@ class FSImagesProvider():
     def get_images(self, show_mode:ShowModeA=ShowMode.UNMARKED, images_filter:ImagesFilter|None=None) -> list[ImageDict]:
         if images_filter:
             images_filter.gallery = self._gallery
+            images_filter.show_mode = show_mode
         else:
-            images_filter = ImagesFilter(gallery=self._gallery)
+            images_filter = ImagesFilter(gallery=self._gallery, show_mode=show_mode)
             
-         # images filter
-        #paths = self.filter_images_by_tags(images_filter)
         
-        #path_all_files = str(self._dirpath / '*.*')
-
+        return self.filter_images2(images_filter)
+    
         fname_regex = r".*"
         ext_regex = r"\.(jpg|png|jpeg|gif|webp)$"
 
@@ -127,8 +207,8 @@ class FSImagesProvider():
             file = new_filename
 
             # update filename in favs
-            FavoriteImagesService.update(self._gallery.pk, imagename, new_filename.name)
-            # update Image
+            #FavoriteImagesService.update(self._gallery.pk, imagename, new_filename.name)
+            # update Image if exists in db
             Image.objects.filter(gallery=self._gallery, filename=imagename).update(filename=new_filename.name)
         return {
                 "name": file.name,
@@ -150,14 +230,14 @@ class FSImagesProvider():
         new = old.rename(new)
 
         # update in fav if any
-        upd_result = FavoriteImagesService.update(self._gallery.pk, old_name, new_name)
+        #upd_result = FavoriteImagesService.update(self._gallery.pk, old_name, new_name)
         # update in Images
         Image.objects.filter(gallery=self._gallery, filename=old_name).update(filename=new_name)
         return {
             "name": new.name,
             "marked": is_file_marked(new.name),
             "mod_time": self.get_mod_time(new),
-            "is_fav": upd_result > 0
+            "is_fav": FavoriteImagesService.exists(self._gallery.pk, new_name)
         }
 
     def copy_move_image(self, gallery_dst: Gallery, img_name: str, move:bool=False):
@@ -174,11 +254,14 @@ class FSImagesProvider():
 
         if move:
             old_file.rename(new_file)
-            fav = FavoriteImagesService()
+            
+            #fav = FavoriteImagesService()
+            
+            '''
             if fav.exists(self._gallery.pk, img_name):
                 fav.remove(self._gallery.pk, img_name)
                 fav.add(gallery_dst.pk, img_name)
-            
+            '''
             # update Image in db if any
             if image:
                 image.gallery = gallery_dst

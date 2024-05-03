@@ -26,6 +26,7 @@ class ImageDict(TypedDict):
 @dataclass
 class ImagesFilter:
     gallery: Gallery
+    show_mode: ShowModeA = DEFAULT_SHOW_MODE
     tags: list[int] | None = None
 
 

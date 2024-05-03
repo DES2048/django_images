@@ -3,9 +3,13 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 from typing import Dict, cast
 from unittest.mock import Mock
+from unittest import skip
+
 from django.contrib.sessions.backends.base import SessionBase
 from django.http import Http404
 from django.test import TestCase
+
+from image_picker.services.types import PickerSettingsDict
 from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, SETTINGS_SESSION_KEY,
                        FSImagesProvider, is_file_marked, FavoriteImagesService, ImagesFilter)
 from .models import FavoriteImage, Gallery, Image, Tag
@@ -30,10 +34,12 @@ class PickerSettingsTestCase(TestCase):
         )
 
         # if settings exists in session returns it
-        expected = {
+        expected:PickerSettingsDict = {
             'selected_gallery': "Gallery",
             'show_mode': ShowMode.ALL,
-            'fav_images_mode': False 
+            'fav_images_mode': False,
+            'shuffle_pics_when_loaded': True,
+            'selected_tags': [] 
         }
         session = SessionBase()
         session[SETTINGS_SESSION_KEY] = expected
@@ -138,7 +144,7 @@ class FSImageProviderTestCase(TestCase):
         no_image_tag = Tag.objects.create(name="no-image")
 
         for filename in self.jpg_filenames:
-            image = Image.objects.create(gallery=self.gallery, filename=filename)
+            image,_ = Image.objects.get_or_create(gallery=self.gallery, filename=filename)
             image.tags.add(tag) # type: ignore
     
         # test get all images
@@ -210,9 +216,9 @@ class FSImageProviderTestCase(TestCase):
         oldfile.touch()
 
         # add oldfile to fav
-        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
-        # add oldfile to Image
-        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+        FavoriteImagesService.add(gallery_id=self.gallery.pk, image_name=oldfile.name)
+        # get oldfile from Image
+        image = Image.objects.get(gallery_id=self.gallery.pk, filename=oldfile.name)
 
         provider = FSImagesProvider(self.gallery)
         provider.mark_image(oldfile.name)
@@ -233,12 +239,12 @@ class FSImageProviderTestCase(TestCase):
         oldfile.touch()
 
         # add oldfile to fav
-        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
-        # add oldfile to Image
-        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+        FavoriteImagesService.add(gallery_id=self.gallery.pk, image_name=oldfile.name)
+        image = Image.objects.get(gallery_id=self.gallery.pk, filename=oldfile.name)
 
         provider = FSImagesProvider(self.gallery)
         provider.mark_image(oldfile.name, mark=False)
+        
         self.assertFalse(oldfile.exists(), "OLD FILE STILL EXISTS")
         self.assertTrue(newfile.exists(), "MARK FILE DOESNT EXIST")
 
@@ -257,9 +263,9 @@ class FSImageProviderTestCase(TestCase):
         oldfile.touch()
 
         # add oldfile to fav
-        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
-        # add oldfile to Image
-        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+        FavoriteImagesService.add(gallery_id=self.gallery.pk, image_name=oldfile.name)
+        # get oldfile to Image
+        image = Image.objects.get(gallery=self.gallery, filename=oldfile.name)
 
         provider = FSImagesProvider(self.gallery)
         provider.rename_image(oldfile.name, newfile.name)
@@ -280,9 +286,9 @@ class FSImageProviderTestCase(TestCase):
         file_for_delete.touch()
 
         # add file to fav
-        FavoriteImage.objects.create(gallery=self.gallery, name=file_for_delete.name)
-        # add file to Image
-        Image.objects.create(gallery=self.gallery, filename=file_for_delete.name)
+        FavoriteImagesService.add(gallery_id=self.gallery.pk, image_name=file_for_delete.name)
+        # get file from Image
+        #image = Image.objects.get(gallery=self.gallery, filename=file_for_delete.name)
 
         provider = FSImagesProvider(self.gallery)
         provider.delete_image(file_for_delete.name)
@@ -301,9 +307,9 @@ class FSImageProviderTestCase(TestCase):
         newfile = Path(self.tmpdir_path2 / "for_copy.jpg")
 
         # add oldfile to fav
-        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
+        FavoriteImagesService.add(gallery_id=self.gallery.pk, image_name=oldfile.name)
         # add oldfile to Image
-        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+        image = Image.objects.get(gallery=self.gallery, filename=oldfile.name)
         # add tags
         image.tags.add(*self.tags)
         self.assertEqual(image.tags.count(), len(self.tags))
@@ -328,9 +334,10 @@ class FSImageProviderTestCase(TestCase):
         oldfile.touch()
 
         # add oldfile to fav
-        FavoriteImage.objects.create(gallery=self.gallery, name=oldfile.name)
-        # add oldfile to Image
-        image = Image.objects.create(gallery=self.gallery, filename=oldfile.name)
+        FavoriteImagesService.add(gallery_id=self.gallery.pk, image_name=oldfile.name)
+        # get oldfile to Image
+        image = Image.objects.get(gallery=self.gallery, filename=oldfile.name)
+        
         # add tags
         image.tags.add(*self.tags)
         self.assertEqual(image.tags.count(), len(self.tags))
@@ -362,6 +369,7 @@ class FavoriteImagesServiceTestCase(TestCase):
     tmpdir:TemporaryDirectory[str]
     tmpdir_path: Path
     gallery: Gallery
+    fav_image_qs = FavoriteImage.objects.select_related("image__gallery")
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -382,24 +390,26 @@ class FavoriteImagesServiceTestCase(TestCase):
             cls.tmpdir.cleanup()
         return super().tearDownClass()
 
-    def test_add(self):
+    def test_add_to_fav(self):
         # when first add new image to favs
         image_name = "image_1.jpg"
         FavoriteImagesService.add(self.gallery.slug, image_name)
 
-        fav = FavoriteImage.objects.get(gallery=self.gallery.pk, name=image_name)
+        fav = self.fav_image_qs.get(image__gallery=self.gallery.pk, image__filename=image_name)
+        
         self.assertIsNotNone(fav)
-        self.assertEqual(fav.gallery.pk, self.gallery.pk)
-        self.assertEqual(fav.name, image_name)
+        self.assertEqual(fav.image.gallery.pk, self.gallery.pk)
+        self.assertEqual(fav.image.filename, image_name)
         self.assertIsNotNone(fav.add_date)
+        
         fav_add_date = fav.add_date
         # add again and ensure notning has changed
         FavoriteImagesService.add(self.gallery.slug, image_name)
 
-        fav = FavoriteImage.objects.get(gallery=self.gallery.pk, name=image_name)
+        fav = self.fav_image_qs.get(image__gallery=self.gallery.pk, image__filename=image_name)
         self.assertIsNotNone(fav)
-        self.assertEqual(fav.gallery.pk, self.gallery.pk)
-        self.assertEqual(fav.name, image_name)
+        self.assertEqual(fav.image.gallery.pk, self.gallery.pk)
+        self.assertEqual(fav.image.filename, image_name)
         self.assertEqual(fav.add_date, fav_add_date)
     
     def test_remove(self):
@@ -410,12 +420,13 @@ class FavoriteImagesServiceTestCase(TestCase):
         FavoriteImagesService.remove(self.gallery.pk, image_name)
 
         with self.assertRaises(FavoriteImage.DoesNotExist): 
-            FavoriteImage.objects.get(gallery=self.gallery, name=image_name)
+            self.fav_image_qs.get(image__gallery=self.gallery, image__filename=image_name)
         
         # delete unexisted
         with self.assertRaises(Http404):
             FavoriteImagesService.remove(self.gallery.pk, "not_exist.jpg")
     
+    @skip("deprecated")
     def test_update(self):
 
         image_name = "image_1.jpg"
@@ -424,7 +435,7 @@ class FavoriteImagesServiceTestCase(TestCase):
 
         FavoriteImagesService.update(self.gallery.pk, image_name, new_image_name)
         fav = FavoriteImage.objects.get(gallery=self.gallery.pk, name=new_image_name)
-        self.assertEqual(fav.name, new_image_name)
+        self.assertEqual(fav.name, new_image_name) # type: ignore
     
     def test_get_favorites_set(self):
         FavoriteImage.objects.all().delete()

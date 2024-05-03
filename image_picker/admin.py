@@ -28,7 +28,8 @@ class GalleryAdmin(WidgetAttrsMixin, admin.ModelAdmin):
     
 @admin.register(FavoriteImage)
 class FavImageAdmin(admin.ModelAdmin):
-    list_display = ("gallery", "name")
+    #list_display = ("gallery", "name")
+    pass
 
 
 @admin.register(Tag)

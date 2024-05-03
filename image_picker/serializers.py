@@ -9,6 +9,8 @@ from django.urls import reverse
 from rest_framework import serializers
 from rest_framework.request import Request
 
+from image_picker.services.favorite_images import FavoriteImagesService
+
 from .models import Gallery, FavoriteImage, Tag
 from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSettingsDict,
                        ImageDict,is_file_marked, FSImagesProvider)
@@ -91,11 +93,28 @@ class ImageSerializer(serializers.Serializer[ImageDict]):
                     "gallery_slug":self.context["gallery_slug"],
                     "image_url": obj["name"]
             })
+
+class FavoriteImageCreateSerializer(serializers.Serializer[Any]):
+    name = serializers.CharField(max_length=255, trim_whitespace=False)
+    gallery = serializers.PrimaryKeyRelatedField(queryset=Gallery.objects.all().only("pk", "dir_path"))
+
+    def validate(self, attrs: Any) -> Any:
+        path = Path(attrs["gallery"].dir_path) / attrs["name"]
+        if not path.exists():
+            raise serializers.ValidationError({"name": [f"image '{attrs['name']}' doensn't exist in '{attrs['gallery'].pk}'"]})
+
+        return attrs
     
-class FavoriteImageSerializer(serializers.ModelSerializer[FavoriteImage]):
+    def create(self, validated_data: Any) -> Any:
+
+        return FavoriteImagesService.add(validated_data["gallery"].pk, validated_data["name"])
+
+
+class FavoriteImageListSerializer(serializers.ModelSerializer[FavoriteImage]):
     add_to_fav_date = JsUnixDateTimeField(read_only=True, source="add_date")
     url = serializers.SerializerMethodField(read_only=True)
-    name = serializers.CharField(max_length=255, trim_whitespace=False)
+    name = serializers.CharField(max_length=255, trim_whitespace=False, source="image.filename")
+    gallery = serializers.CharField(max_length=255, trim_whitespace=False, source="image.gallery_id")
     marked = serializers.SerializerMethodField(read_only=True)
     mod_time = serializers.SerializerMethodField(read_only=True)
     is_fav = serializers.BooleanField(default=True, read_only=True)
@@ -107,15 +126,15 @@ class FavoriteImageSerializer(serializers.ModelSerializer[FavoriteImage]):
         return reverse(
             viewname="get-image", 
             kwargs={
-                    "gallery_slug":obj.gallery_id, # type: ignore
-                    "image_url": obj.name
+                    "gallery_slug":obj.image.gallery_id, # type: ignore
+                    "image_url": obj.image.filename
             })
     
     def get_marked(self, obj:FavoriteImage) -> bool:
-        return is_file_marked(obj.name)
+        return is_file_marked(obj.image.filename)
 
     def get_mod_time(self, obj:FavoriteImage)-> float:
-        return FSImagesProvider.get_mod_time(Path(obj.gallery.dir_path) / obj.name)
+        return FSImagesProvider.get_mod_time(Path(obj.image.gallery.dir_path) / obj.image.filename)
 
 
 class NewImageNameSerializer(serializers.Serializer): # type: ignore
