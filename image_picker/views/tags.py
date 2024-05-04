@@ -1,3 +1,4 @@
+from tkinter import ALL
 from typing import Any, cast
 
 from django.shortcuts import get_object_or_404
@@ -12,6 +13,7 @@ from image_picker.services import FSImagesProvider
 from image_picker.serializers import (  TagSerializer, ImageTagsUpdateSerializer)
 
 from image_picker.models import Gallery, Tag, Image
+from image_picker.services.types import ShowMode, ShowModeA
 
 
 class TagListCreateApiView(generics.ListCreateAPIView): # type: ignore
@@ -21,22 +23,31 @@ class TagListCreateApiView(generics.ListCreateAPIView): # type: ignore
     def get_queryset(self) -> Any:
         qs = super().get_queryset()
         # get value for count from query params if any
-        count_for_val:str = cast(str, self.request.query_params.get("count-for", ""))
-        
+        count_for_gallery:str = cast(str, self.request.query_params.get("count-for-gallery", ""))
+        count_for_show_mode = cast(str, self.request.query_params.get("count-for-show-mode", str(ShowMode.ALL)))
+
+        qs_filter = None
         # if present annotate each tag with images count in all galleries or in passed gallery
-        if count_for_val:
+        if count_for_gallery:
             # when asterisk(*) - count for all
-            gall_filter = None
-            if count_for_val == "*":
-                gall_filter = Q()
+            
+            if count_for_gallery == "*":
+                qs_filter = Q()
             else:
                 # check gallery in db
-                if Gallery.objects.filter(pk=count_for_val).exists():
-                    gall_filter = Q(imagetag__image__gallery=count_for_val)
+                if Gallery.objects.filter(pk=count_for_gallery).exists():
+                    qs_filter = Q(imagetag__image__gallery=count_for_gallery)
             
-            if gall_filter is not None:
+            if qs_filter is not None:
+
+                show_mode =  count_for_show_mode if count_for_show_mode and count_for_show_mode in ShowMode.MODES_LIST \
+                            else ShowMode.ALL
+                
+                qs_filter &= Q(imagetag__image__filename__iregex=FSImagesProvider.get_filename_regex(show_mode).pattern)
+                
                 self.with_count = True
-                qs = qs.annotate(images_count=Count("imagetag__image", filter=gall_filter))
+                qs = qs.annotate(images_count=Count("imagetag__image", filter=qs_filter))
+        
         
         return qs
 
