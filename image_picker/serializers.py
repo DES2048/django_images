@@ -43,13 +43,13 @@ class GallerySerializer(serializers.ModelSerializer[Gallery]):
 
 class SettingsSerializer(serializers.Serializer[PickerSettings]):
     #selected_gallery = PrimaryKeyField(queryset=Gallery.objects.all())
-    selected_gallery = serializers.CharField(max_length=128)
+    selected_gallery = serializers.CharField(max_length=128, required=False, allow_blank=True)
     show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
     fav_images_mode = serializers.BooleanField(default=False)
     shuffle_pics_when_loaded = serializers.BooleanField(default=False)
-    selected_tags = serializers.ListField(child=serializers.IntegerField())
+    selected_tags = serializers.ListField(child=serializers.IntegerField(), default=[])
 
-    def validate_selected_gallery(self, value:str) -> str:
+    def _validate_selected_gallery(self, value:str) -> str:
         try:
             Gallery.objects.get(pk=value)
         except Gallery.DoesNotExist:
@@ -68,7 +68,20 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
         if not Tag.objects.filter(pk__in=value).exists():
             raise serializers.ValidationError("Invalid tag ids")
         return value
-   
+    
+    def validate(self, attrs: Any) -> Any:
+        if not attrs["fav_images_mode"]:
+            
+            try:
+                self.fields["selected_gallery"].run_validation(attrs.get("selected_gallery", ""))
+                self._validate_selected_gallery(attrs.get("selected_gallery", ""))
+            except serializers.ValidationError as e:
+                raise serializers.ValidationError({
+                    "selected_gallery": e.detail
+                })
+        
+        return attrs
+    
     def save(self, **kwargs:Unpack[SaveKwargs]) -> PickerSettings:  # type: ignore
         data = cast(PickerSettingsDict, self.validated_data)
         

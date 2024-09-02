@@ -64,6 +64,13 @@ class FavoriteImageListCreateApiView(generics.ListCreateAPIView, # type: ignore
         self.check_object_permissions(self.request, obj)
 
         return obj
+
+    def get_queryset(self) -> generics.QuerySet: # type: ignore
+        qs = super().get_queryset()
+
+        show_mode = self.request.query_params.get("show_mode", DEFAULT_SHOW_MODE) # type: ignore
+        qs = qs.filter(image__filename__iregex=FSImagesProvider.get_filename_regex(show_mode).pattern)
+        return qs
     
     def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.data)
