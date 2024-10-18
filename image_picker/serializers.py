@@ -25,12 +25,7 @@ class JsUnixDateTimeField(serializers.Field): # type: ignore
         return datetime.timestamp(value)* 1000 if datetime else 0
 
 
-class PrimaryKeyField(serializers.PrimaryKeyRelatedField):
-
-    def to_representation(self, obj):
-        return obj
-
-
+# serializers
 class GallerySerializer(serializers.ModelSerializer[Gallery]):
     
     pinned_date = JsUnixDateTimeField(read_only=True)
