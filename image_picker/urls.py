@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
 	home, get_image, delete_image, rename_image, copy_move_image, settings, images, mark_image, 
     pin_unpin_gallery,FavoriteImageListCreateApiView, GalleryListApiView, GalleryRetUpdDelView, 
-    TagListCreateApiView, TagRetUpdDelApiView, image_tags
+    TagListCreateApiView, TagRetUpdDelApiView, image_tags, filter_images
 )
 
 urlpatterns = [
@@ -18,6 +18,7 @@ urlpatterns = [
 	path("galleries/<slug:gallery_slug>/images/<path:image_url>/mark", mark_image, {"mark":True}, name="mark-image"),
     path("galleries/<slug:gallery_slug>/images/<path:image_url>/unmark", mark_image, {"mark":False}, name="unmark-image"),
     path("galleries/<slug:gallery_slug>/images/<path:image_url>/tags", image_tags, name="image-tags"),
+    path("filter-images/", filter_images, name="filter-images"),
     path("tags/", TagListCreateApiView.as_view(), name="tag-list"), # type: ignore
     path("tags/<int:pk>", TagRetUpdDelApiView.as_view(), name="tag-detail"), # type: ignore
 	path('get-image/<slug:gallery_slug>/<path:image_url>', get_image, name="get-image"),

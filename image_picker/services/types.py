@@ -17,6 +17,7 @@ class GalleryProto(Protocol):
     title: str
 
 class ImageDict(TypedDict):
+    gallery: str | None
     name: str
     marked: bool
     mod_time: float
@@ -25,7 +26,7 @@ class ImageDict(TypedDict):
 
 @dataclass
 class ImagesFilter:
-    gallery: Gallery
+    gallery: Gallery| None = None
     show_mode: ShowModeA = DEFAULT_SHOW_MODE
     tags: list[int] | None = None
 

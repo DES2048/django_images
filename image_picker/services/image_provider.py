@@ -4,7 +4,7 @@ from shutil import copy2
 from typing import Any, cast
 from django.db.models import Q, ExpressionWrapper, BooleanField
 
-from ..models import Gallery, ImageTag, Image, FavoriteImage
+from ..models import Gallery, ImageTag, Image
 
 from .types import ImageDict, ShowMode, ShowModeA, ImagesFilter
 from .favorite_images import FavoriteImagesService
@@ -58,7 +58,8 @@ class FSImagesProvider():
                 "name": image.filename,
                 "marked": is_file_marked(image.filename),
                 "mod_time": cls.get_mod_time(Path(image.gallery.dir_path) / image.filename),
-                "is_fav": cast(bool,image.is_fav) # type: ignore
+                "is_fav": cast(bool,image.is_fav), # type: ignore
+                "gallery": image.gallery.pk
             }
             for image in filtered_images
         ]
@@ -136,7 +137,6 @@ class FSImagesProvider():
         else:
             images_filter = ImagesFilter(gallery=self._gallery, show_mode=show_mode)
             
-        
         return self.filter_images2(images_filter)
     
         fname_regex = r".*"

@@ -5,11 +5,13 @@ from typing import Any, cast, TypedDict
 from typing_extensions import Unpack
 
 from django.urls import reverse
+from django.core.exceptions import ValidationError
 
 from rest_framework import serializers
 from rest_framework.request import Request
 
 from image_picker.services.favorite_images import FavoriteImagesService
+from image_picker.services.types import ImagesFilter
 
 from .models import Gallery, FavoriteImage, Tag
 from .services import (PickerSettings, ShowMode, DEFAULT_SHOW_MODE, PickerSettingsDict,
@@ -23,6 +25,20 @@ class JsUnixDateTimeField(serializers.Field): # type: ignore
 
     def to_representation(self, value: datetime) -> float:
         return datetime.timestamp(value)* 1000 if datetime else 0
+
+
+class ImagesShowModeField(serializers.CharField):
+    default = DEFAULT_SHOW_MODE
+    max_length = 20
+
+    def __init__(self, **kwargs): # type: ignore
+        super().__init__(default=self.default, max_length=self.max_length, validators=[validate_image_show_mode], **kwargs) # type: ignore 
+
+
+# validators
+def validate_image_show_mode(value:str):
+	if value not in ShowMode.MODES_LIST:
+		raise ValidationError("invalid show_mode value")
 
 
 # serializers
@@ -39,7 +55,8 @@ class GallerySerializer(serializers.ModelSerializer[Gallery]):
 class SettingsSerializer(serializers.Serializer[PickerSettings]):
     #selected_gallery = PrimaryKeyField(queryset=Gallery.objects.all())
     selected_gallery = serializers.CharField(max_length=128, required=False, allow_blank=True)
-    show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
+    show_mode = ImagesShowModeField()
+    # show_mode = serializers.CharField(max_length=20, default=DEFAULT_SHOW_MODE)
     fav_images_mode = serializers.BooleanField(default=False)
     shuffle_pics_when_loaded = serializers.BooleanField(default=False)
     selected_tags = serializers.ListField(child=serializers.IntegerField(), default=[])
@@ -51,7 +68,7 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
             raise serializers.ValidationError(f" gallery '{value}' doesn't exist")
         return value
     
-    def validate_show_mode(self, value:str) -> str:
+    def validate_show_mode_(self, value:str) -> str:
         if value not in ShowMode.MODES_LIST:
             raise serializers.ValidationError("invalid show_mode value")
         
@@ -65,7 +82,7 @@ class SettingsSerializer(serializers.Serializer[PickerSettings]):
         return value
     
     def validate(self, attrs: Any) -> Any:
-        if not attrs["fav_images_mode"]:
+        if not attrs["fav_images_mode"] and not attrs["selected_tags"]:
             
             try:
                 self.fields["selected_gallery"].run_validation(attrs.get("selected_gallery", ""))
@@ -93,12 +110,14 @@ class ImageSerializer(serializers.Serializer[ImageDict]):
     mod_time = serializers.FloatField()
     is_fav = serializers.BooleanField()
     url = serializers.SerializerMethodField()
+    gallery = serializers.CharField(required=False)
 
     def get_url(self, obj:ImageDict) -> str:
+        gallery_slug = self.context["gallery_slug"] if self.context.get("gallery_slug") else obj["gallery"]
         return reverse(
             viewname="get-image", 
             kwargs={
-                    "gallery_slug":self.context["gallery_slug"],
+                    "gallery_slug": gallery_slug,
                     "image_url": obj["name"]
             })
 
@@ -218,4 +237,17 @@ class ImageTagsUpdateSerializer(serializers.Serializer): # type: ignore
         if not Tag.objects.filter(pk__in=value).exists():
             raise serializers.ValidationError("Invalid tag ids")
         return value
-            
+
+
+class ImagesFilterSerializer(serializers.Serializer): # type: ignore
+    
+    gallery = serializers.PrimaryKeyRelatedField(required=False, queryset=Gallery.objects.all()) # type: ignore
+    show_mode = ImagesShowModeField(required=False)
+    tags = serializers.ListField(child=serializers.IntegerField(), required=False, allow_empty=True)
+
+    def create(self, validated_data: Any) -> ImagesFilter:
+        return ImagesFilter(gallery=validated_data.get("gallery"), show_mode=validated_data.get("show_mode"),
+                            tags=validated_data.get("tags"))
+    
+    def validate_tags(self, value:list[int])->list[int]:
+        return list(Tag.objects.filter(pk__in=value).only("pk").values_list("pk",flat=True)) # type: ignore

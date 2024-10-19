@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from image_picker.models import Gallery
 from image_picker.services import DEFAULT_SHOW_MODE, FSImagesProvider, ImagesFilter, ShowModeA
 
-from image_picker.serializers import ImageSerializer, NewImageNameSerializer, CopyMoveImageSerializer
+from image_picker.serializers import ImageSerializer, ImagesFilterSerializer, NewImageNameSerializer, CopyMoveImageSerializer
 
 # TODO mechanizm for checking ingoing image names /urls
 # TODO images views to viewset
@@ -37,6 +37,22 @@ def images(request:Request, gallery_slug:str) -> Response:
     
     return Response(data=serializer.data)
 	
+
+@api_view(["POST"])
+def filter_images(request:Request) -> Response:
+    # get from gallery filter serializer
+    serializer = ImagesFilterSerializer(data=request.data)
+
+    if serializer.is_valid():
+        images_filter:ImagesFilter = serializer.save() # type: ignore
+        images = FSImagesProvider.filter_images2(images_filter) # type: ignore
+        rs = ImageSerializer(instance=images, many=True) # type: ignore
+        return Response(data=rs.data)
+    else:
+        return Response(data=serializer.errors, status=400)
+    # get images from images provider
+    # return response
+
 
 def get_image(_:HttpRequest, gallery_slug:str, image_url:str) -> FileResponse:
     
