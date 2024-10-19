@@ -1,4 +1,3 @@
-from tkinter import ALL
 from typing import Any, cast
 
 from django.shortcuts import get_object_or_404
