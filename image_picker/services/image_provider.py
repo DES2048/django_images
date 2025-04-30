@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 from shutil import copy2
-from typing import Any, cast
+from typing import cast
 from django.db.models import Q, ExpressionWrapper, BooleanField
 
 from ..models import Gallery, ImageTag, Image
@@ -44,9 +44,9 @@ class FSImagesProvider():
         
         regex = cls.get_filename_regex(images_filter.show_mode)
 
-        def image_filter(image:Image):
+        def image_filter(image:Image)->bool:
             p = Path(image.gallery.dir_path) / image.filename
-            return p.exists and regex.match(p.name) 
+            return p.exists() and regex.match(p.name) is not None
 
         filtered_images = filter(
             image_filter,
