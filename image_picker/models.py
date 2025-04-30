@@ -29,6 +29,9 @@ class Gallery(models.Model):
 class Tag(models.Model):
     name = models.CharField(max_length=128, db_index=True, unique=True)
 
+    def __str__(self):
+        return self.name
+
     class Meta: #type: ignore
         db_table = "tag"
 
