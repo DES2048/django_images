@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from shutil import copy2
 from typing import cast
-from django.db.models import Q, ExpressionWrapper, BooleanField
+from django.db.models import Q, ExpressionWrapper, BooleanField, QuerySet
 
 from ..models import Gallery, ImageTag, Image
 
@@ -29,6 +29,44 @@ class FSImagesProvider():
         return get_mod_time(filename)
 
     @classmethod
+    def get_images_from_db_qs(cls, images_filter:ImagesFilter) ->QuerySet[Image]:
+
+        qs_filter = Q()
+
+        if images_filter.gallery:
+            qs_filter &= Q(gallery=images_filter.gallery)
+        if images_filter.tags:
+            qs_filter &= Q(tags__in=images_filter.tags)
+
+        images = Image.objects.select_related("favoriteimage", "gallery").filter(qs_filter).annotate(
+            is_fav=ExpressionWrapper(Q(favoriteimage__isnull=False), output_field=BooleanField())
+        )
+        
+        return images
+
+    @classmethod
+    def get_tagged_images_set(cls, gallery: Gallery | None = None, show_mode:ShowModeA = ShowMode.ALL) -> set[str]:
+        qs_filter = Q(tags__isnull=False)
+
+        if gallery:
+            qs_filter &= Q(gallery=gallery)
+
+        images_qs = Image.objects.filter(qs_filter).select_related("gallery").only("filename", "gallery__dir_path")
+
+        regex = cls.get_filename_regex(show_mode)
+
+        def image_filter(image:Image)->bool:
+            p = Path(image.gallery.dir_path) / image.filename
+            return p.exists() and regex.match(p.name) is not None
+
+        return set(map(
+            lambda image:str(Path(image.gallery.dir_path) / image.filename),
+            filter(
+                image_filter,
+                images_qs
+        )))
+
+    @classmethod
     def get_images_from_db(cls, images_filter:ImagesFilter) ->list[ImageDict]:
         
         qs_filter = Q()
@@ -43,6 +81,8 @@ class FSImagesProvider():
         )
         
         regex = cls.get_filename_regex(images_filter.show_mode)
+        # TODO: fix regex
+        #images.filter(filename__iregex=regex.pattern)
 
         def image_filter(image:Image)->bool:
             p = Path(image.gallery.dir_path) / image.filename
@@ -84,7 +124,7 @@ class FSImagesProvider():
         regex = cls.get_filename_regex(images_filter.show_mode)
 
         # фильтруем либо по только по картинкам из бд
-        if images_filter.tags:
+        if images_filter.tags and -1 not in images_filter.tags:
             return cls.get_images_from_db(images_filter)
 
         # либо по картинкам из файловой системы
@@ -96,7 +136,12 @@ class FSImagesProvider():
         
         # get favorites for this gallery
         favs_set = FavoriteImagesService.get_favorites_set(images_filter.gallery.pk)
-        
+       
+        # если есть фильтр по отстутствию тэга
+        if images_filter.tags and -1 in images_filter.tags:
+            tagged_images_set = cls.get_tagged_images_set(gallery=images_filter.gallery, show_mode=images_filter.show_mode)
+            paths = filter(lambda p: str(p) not in tagged_images_set, paths )
+
         # вернем
         return list(
             {
