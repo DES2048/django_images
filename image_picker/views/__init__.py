@@ -65,7 +65,7 @@ class FavoriteImageListCreateApiView(generics.ListCreateAPIView, # type: ignore
 
         return obj
 
-    def get_queryset(self) -> generics.QuerySet: # type: ignore
+    def _get_queryset(self) -> generics.QuerySet: # type: ignore
         qs = super().get_queryset()
 
         show_mode = self.request.query_params.get("show_mode", DEFAULT_SHOW_MODE) # type: ignore
@@ -80,3 +80,18 @@ class FavoriteImageListCreateApiView(generics.ListCreateAPIView, # type: ignore
         out_serializer = FavoriteImageListSerializer(instance=serializer.instance)
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 
+    def list(self, request:Request, *args:Any, **kwargs:Any)-> Response:
+        queryset = self.get_queryset()
+
+        show_mode = request.query_params.get("show_mode", DEFAULT_SHOW_MODE) # type: ignore
+        queryset = queryset.filter(image__filename__iregex=FSImagesProvider.get_filename_regex(show_mode).pattern)
+
+        queryset = self.filter_queryset(queryset)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)

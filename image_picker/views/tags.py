@@ -17,7 +17,7 @@ from image_picker.services.types import ShowMode, ShowModeA
 
 class TagListCreateApiView(generics.ListCreateAPIView): # type: ignore
     serializer_class = TagSerializer
-    queryset = Tag.objects.all()
+    queryset = Tag.objects.all().order_by("name")
 
     def get_queryset(self) -> Any:
         qs = super().get_queryset()
