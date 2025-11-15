@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'django_vite',
     'rest_framework',
     'image_picker',
@@ -54,6 +55,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -160,3 +162,4 @@ DJANGO_VITE_DEV_SERVER_HOST = env("DJANGO_VITE_DEV_SERVER_HOST")
 REST_FRAMEWORK = {
     "NON_FIELD_ERRORS_KEY": "common-errors"
 }
+CORS_ALLOW_ALL_ORIGINS = True

@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
 	home, get_image, delete_image, rename_image, copy_move_image, settings, images, mark_image, 
     pin_unpin_gallery,FavoriteImageListCreateApiView, GalleryListApiView, GalleryRetUpdDelView, 
-    TagListCreateApiView, TagRetUpdDelApiView, image_tags, filter_images
+    TagListCreateApiView, TagRetUpdDelApiView, image_tags, filter_images, image_infos_by_paths
 )
 
 urlpatterns = [
@@ -25,6 +25,7 @@ urlpatterns = [
 	path('delete-image/<slug:gallery_slug>/<path:image_url>', delete_image, name="delete-image"),
     path('fav-images/', FavoriteImageListCreateApiView.as_view(), name="fav-images"), # type: ignore
 	path('settings/', settings),
+    path('image-infos-by-paths', image_infos_by_paths),
 ]
 
 #router = DefaultRouter()

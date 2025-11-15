@@ -1,14 +1,17 @@
+import os
+from pathlib import Path
 from typing import Any, cast
 
 from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import status, generics, serializers
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from image_picker.services import PickerSettings
+from image_picker.services import PickerSettings,FavoriteImagesService
 from image_picker.serializers import ( SettingsSerializer, FavoriteImageListSerializer, FavoriteImageCreateSerializer )
 
 from image_picker.models import FavoriteImage
@@ -95,3 +98,73 @@ class FavoriteImageListCreateApiView(generics.ListCreateAPIView, # type: ignore
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+
+@api_view(["POST"])
+@csrf_exempt
+def image_infos_by_paths(request: Request) -> Response:
+    # TODO: to list serializer
+    files_list = cast(list[str], request.data["files"])
+
+    # print("img_path ", img_path)
+    # get galleries
+    galls = {
+        Path(gall.dir_path): gall.slug
+        for gall in Gallery.objects.only("slug", "dir_path")
+    }
+
+    # filter galleries that exists
+    galls = dict(
+        (k, v) for k, v in galls.items() if k.exists()
+    )  # print("galls", galls)
+    # print("img parent", img_path.parent)
+    
+    # set for dirs that not exists in galls
+    nfound_paths: set[Path] = set()
+    data = []
+
+    for image_file in files_list:
+        img_path = Path(image_file)
+
+        if img_path.parent in nfound_paths:
+            continue
+
+        gall_id = galls.get(img_path.parent)
+
+        if not gall_id and os.getenv("TERMUX_VERSION"):
+            # slow approach with samefile
+            for path, slug in galls.items():
+                if path.samefile(img_path.parent):
+                    gall_id = slug
+                    galls[img_path.parent] = slug
+                    break
+
+                if not gall_id:
+                    nfound_paths.add(img_path.parent)
+
+        imageDb = None
+        img = None
+        if gall_id:
+            img = dict()
+            img["gallery_id"] = gall_id
+            img["path"] = image_file
+
+            imageDb = Image.objects.filter(
+                filename=img_path.name, gallery__pk=gall_id
+            ).first()
+
+            if imageDb:
+                img["name"] = img_path.name
+                img["is_fav"] = FavoriteImagesService().exists(gall_id, img_path.name)
+
+                tags = [
+                    {"id": t.id, "name": t.name}
+                    for t in imageDb.tags.all().only("id", "name")
+                ]
+                if tags:
+                    img["tags"] = tags
+
+            data.append(img)
+    print(data)
+
+    return Response(status=200, data=data)
