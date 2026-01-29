@@ -141,13 +141,14 @@ class FavoriteImageListSerializer(serializers.ModelSerializer[FavoriteImage]):
     add_to_fav_date = JsUnixDateTimeField(read_only=True, source="add_date")
     url = serializers.SerializerMethodField(read_only=True)
     name = serializers.CharField(max_length=255, trim_whitespace=False, source="image.filename")
+    path = serializers.SerializerMethodField(read_only=True)
     gallery = serializers.CharField(max_length=255, trim_whitespace=False, source="image.gallery_id")
     marked = serializers.SerializerMethodField(read_only=True)
     mod_time = serializers.SerializerMethodField(read_only=True)
     is_fav = serializers.BooleanField(default=True, read_only=True)
     class Meta: # type: ignore
         model = FavoriteImage
-        fields = ["gallery","name", "add_to_fav_date", "url", "mod_time", "is_fav", "marked"]
+        fields = ["gallery","name", "path", "add_to_fav_date", "url", "mod_time", "is_fav", "marked"]
     
     def get_url(self, obj:FavoriteImage) -> str:
         return reverse(
@@ -157,6 +158,8 @@ class FavoriteImageListSerializer(serializers.ModelSerializer[FavoriteImage]):
                     "image_url": obj.image.filename
             })
     
+    def get_path(self, obj:FavoriteImage) -> str:
+        return str(Path(obj.image.gallery.dir_path) / obj.image.filename)
     def get_marked(self, obj:FavoriteImage) -> bool:
         return is_file_marked(obj.image.filename)
 
