@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 
 env = environ.Env(
     ALLOWED_HOSTS=(list, 
-        ['127.0.0.1',]
+        ['*',]
     ),
     DJANGO_VITE_DEV_MODE=(bool,False)
 )
