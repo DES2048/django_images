@@ -22,7 +22,8 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, 
         ['*',]
     ),
-    DJANGO_VITE_DEV_MODE=(bool,False)
+    DJANGO_VITE_DEV_MODE=(bool,False),
+    DJANGO_VITE_DEV_SERVER_HOST=(str, '127.0.0.1'),
 )
 env.read_env()
 
