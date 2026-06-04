@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, NotRequired, TypedDict, cast
 
 from django.shortcuts import render
 from django.http import HttpRequest, HttpResponse
@@ -106,22 +106,23 @@ def image_infos_by_paths(request: Request) -> Response:
     # TODO: to list serializer
     files_list = cast(list[str], request.data["files"])
 
-    # print("img_path ", img_path)
     # get galleries
-    galls = {
+    galls: dict[Path, str] = {
         Path(gall.dir_path): gall.slug
         for gall in Gallery.objects.only("slug", "dir_path")
+        if os.path.exists(gall.dir_path)
     }
 
-    # filter galleries that exists
-    galls = dict(
-        (k, v) for k, v in galls.items() if k.exists()
-    )  # print("galls", galls)
-    # print("img parent", img_path.parent)
-    
     # set for dirs that not exists in galls
     nfound_paths: set[Path] = set()
-    data = []
+    ImgDict = TypedDict("ImgDict", 
+                        {"gallery_id": str,
+                        "path": str,
+                        "name": NotRequired[str],
+                        "is_fav": NotRequired[bool],
+                        "tags": NotRequired[list]}
+                        )
+    data:list[ImgDict] = []
 
     for image_file in files_list:
         img_path = Path(image_file)
@@ -139,16 +140,16 @@ def image_infos_by_paths(request: Request) -> Response:
                     galls[img_path.parent] = slug
                     break
 
-                if not gall_id:
-                    nfound_paths.add(img_path.parent)
+            if not gall_id:
+                nfound_paths.add(img_path.parent)
 
-        imageDb = None
-        img = None
         if gall_id:
-            img = dict()
-            img["gallery_id"] = gall_id
-            img["path"] = image_file
-
+            img:ImgDict = {
+                "gallery_id": gall_id,
+                "path" : image_file
+            }
+            
+            # FIXME: n+1 query
             imageDb = Image.objects.filter(
                 filename=img_path.name, gallery__pk=gall_id
             ).first()
@@ -165,6 +166,5 @@ def image_infos_by_paths(request: Request) -> Response:
                     img["tags"] = tags
 
             data.append(img)
-    print(data)
 
     return Response(status=200, data=data)
