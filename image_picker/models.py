@@ -7,8 +7,8 @@ from .validators import validate_path_exists, validate_is_dir
 class Gallery(models.Model):
     title = models.CharField(max_length=128)
     slug = models.SlugField(max_length=128, db_index=True, primary_key=True)
-    dir_path = models.CharField(max_length=255, unique=True,
-    validators=(validate_path_exists, validate_is_dir))
+    dir_path = models.CharField(max_length=255, unique=True,)
+    #validators=(validate_path_exists, validate_is_dir))
     pinned = models.BooleanField(default=False)
     pinned_date = models.DateTimeField(null=True, blank=True)
 

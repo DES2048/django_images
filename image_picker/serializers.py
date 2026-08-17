@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework.request import Request
 
+from image_picker import validators
 from image_picker.services.favorite_images import FavoriteImagesService
 from image_picker.services.types import ImagesFilter
 
@@ -45,9 +46,28 @@ def validate_image_show_mode(value:str):
 class GallerySerializer(serializers.ModelSerializer[Gallery]):
     
     pinned_date = JsUnixDateTimeField(read_only=True)
+    create_new_dir = serializers.BooleanField(write_only=True,default=False)
+
+    def validate(self, attrs: Any) -> Any:
+        if not attrs["create_new_dir"]:
+            try:
+                validators.validate_path_exists(attrs["dir_path"])
+                validators.validate_is_dir(attrs["dir_path"])
+            except serializers.ValidationError as e:
+                raise serializers.ValidationError({
+                    "dir_path": e.detail
+                })
+        return super().validate(attrs)
+
+    def create(self, validated_data: Any) -> Any:
+        if validated_data["create_new_dir"]:
+            Path(validated_data["dir_path"]).mkdir(parents=True,exist_ok=True)
+            del validated_data["create_new_dir"]
+        return super().create(validated_data)
+
     class Meta: # type: ignore
         model = Gallery
-        fields = ['slug', 'title', "pinned", "pinned_date", "dir_path"]
+        fields = ['slug', 'title', "pinned", "pinned_date", "dir_path", "create_new_dir"]
         #extra_kwargs = {'dir_path': {'write_only': True}}
 
     #Meta = cast(type[serializers.ModelSerializer[Gallery].Meta], _Meta)
