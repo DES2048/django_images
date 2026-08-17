@@ -96,7 +96,9 @@ class FavoriteImageListCreateApiView(generics.ListCreateAPIView, # type: ignore
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
-        serializer = self.get_serializer(queryset, many=True)
+        # filter missing images
+        filtered = list(filter(lambda i: os.path.exists(os.path.join(i.image.gallery.dir_path,i.image.filename)), queryset))
+        serializer = self.get_serializer(filtered, many=True)
         return Response(serializer.data)
 
 
